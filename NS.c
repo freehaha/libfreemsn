@@ -353,12 +353,12 @@ int _NS_push_command(NS *ns, Command *c)/*{{{*/
 	cmdqueue_push(ns->cmdq, c);
 	return 1;
 }/*}}}*/
-void NS_request_SB(NS *ns)/*{{{*/
+int NS_request_SB(NS *ns)/*{{{*/
 {
 	Command *c;
 	NSNotifyData *data = NS_notify_data_new(NOTIFY_REQSB);
 	c = command_new(CMD_NS_NOTIFY, data, NS_notify_data_destroy);
-	_NS_push_command(ns, c);
+	return _NS_push_command(ns, c);
 }/*}}}*/
 
 int NS_sb_invite(NS *ns, SB *sb, const char *email)/*{{{*/
@@ -866,8 +866,7 @@ int _NS_disp_XFR(NS * ns, char* command) /* transfer {{{*/
 			ns->sblist = sb;
 		}
 		Command *c;
-		SBNotifyData *data = SB_notify_data_new(NOTIFY_REQSB);
-		data->sb = sb;
+		SBNotifyData *data = SB_notify_data_new(sb, NOTIFY_REQSB);
 		c = command_new(CMD_SB_NOTIFY, data, SB_notify_data_destroy);
 		cmdqueue_push(ns->notifies, c);
 	}
@@ -1001,8 +1000,7 @@ int _NS_disp_RNG(NS *ns, char* command) /* ringring {{{*/
 			ns->sblist = sb;
 		}
 		Command *c;
-		SBNotifyData *data = SB_notify_data_new(NOTIFY_NEWSB);
-		data->sb = sb;
+		SBNotifyData *data = SB_notify_data_new(sb, NOTIFY_NEWSB);
 		c = command_new(CMD_SB_NOTIFY, data, SB_notify_data_destroy);
 		cmdqueue_push(ns->notifies, c);
 	}

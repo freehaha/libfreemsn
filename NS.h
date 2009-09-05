@@ -61,6 +61,6 @@ NSNotifyData *NS_notify_data_new(Notify notify);
 void NS_notify_data_destroy(void *notifydata);
 void NS_msg_destroy(void *data);
 int NS_sb_invite(NS *ns, SB *sb, const char *email);
-void NS_request_SB(NS *ns);
+int NS_request_SB(NS *ns);
 
 #endif /* end of include guard: NS_PSP9PJHU */

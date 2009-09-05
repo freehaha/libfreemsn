@@ -8,6 +8,11 @@ int _SB_read_payload(SB *sb, char **buf, int len);
 bool _SB_add_buddy(SB *sb, SBBuddy *bud);
 bool _SB_remove_buddy(SB *sb, const char *email);
 SBNotifyMsg *_SB_make_notify_msg(SB *sb, const char *email, const char *nick, const char *message, int length);
+const char msgheader[] = "MIME-Version: 1.0\r\n"
+		"Content-Type: text/plain; charset=UTF-8\r\n"
+		"X-MMS-IM-Format: FN=Arial; EF=I; CO=0; CS=0; PF=22\r\n"
+		"\r\n";
+
 SBBuddy *sbbuddy_new(const char *nick, const char *email, int cid)/*{{{*/
 {
 	SBBuddy *bd = xmalloc(sizeof(SBBuddy));
@@ -78,11 +83,6 @@ int SB_connect(SB *sb)/*{{{*/
 		return _SB_send_command(sb, "USR", hello, TRUE);
 	}
 }/*}}}*/
-const char msgheader[] = "MIME-Version: 1.0\r\n"
-		"Content-Type: text/plain; charset=UTF-8\r\n"
-		"X-MMS-IM-Format: FN=Arial; EF=I; CO=0; CS=0; PF=22\r\n"
-		"\r\n";
-
 int SB_sendmsg(SB *sb, const char *msg)/*{{{*/
 {
 	char *msgbuf = xmalloc(strlen(msg)+sizeof(msgheader));
@@ -265,6 +265,9 @@ int _SB_disp_USR(SB* sb, char * command) /* authentication confirm *//*{{{*/
 }/*}}}*/
 int _SB_disp_NAK(SB *sb, char *commnad)/*{{{*/
 {
+	SBNotifyData *data = SB_notify_data_new(sb, NOTIFY_NAK);
+	Command *c = command_new(CMD_SB_NOTIFY, data, SB_notify_data_destroy);
+	cmdqueue_push(sb->notifies, c);
 	DMSG(stderr, "SB: NAK\n");
 	return 0;
 }/*}}}*/
@@ -283,8 +286,7 @@ int _SB_disp_JOI(SB* sb, char * command) /* somebody joins *//*{{{*/
 	{
 		DMSG(stderr, "%s joins SB %lu\n", nick, sb->id);
 		SBBuddy *bd = sbbuddy_new(nick, email, cid);
-		bd->next = sb->list;
-		sb->list = bd;
+		_SB_add_buddy(sb, bd);
 		return 1;
 	}
 	return 0;
@@ -300,8 +302,7 @@ int _SB_disp_IRO(SB* sb, char * command) /* init user list *//*{{{*/
 	if(sscanf(command, "%*d %d %d %s %s %d", &id, &max, email, nick, &cid) == 5)
 	{
 		SBBuddy *bd = sbbuddy_new(nick, email, cid);
-		bd->next = sb->list;
-		sb->list = bd;
+		_SB_add_buddy(sb, bd);
 		return id;
 	}
 	return 0;
@@ -311,6 +312,7 @@ bool _SB_add_buddy(SB *sb, SBBuddy *bud)/*{{{*/
 	if(!bud) return FALSE;
 	bud->next = sb->list;
 	sb->list = bud;
+	sb->count++;
 	return TRUE;
 }/*}}}*/
 bool _SB_remove_buddy(SB *sb, const char *email)/*{{{*/
@@ -322,6 +324,7 @@ bool _SB_remove_buddy(SB *sb, const char *email)/*{{{*/
 		bud = sb->list;
 		sb->list = sb->list->next;
 		sbbuddy_destroy(bud);
+		sb->count--;
 		return TRUE;
 	}
 	for(prev=sb->list;prev->next;prev=prev->next)
@@ -331,6 +334,7 @@ bool _SB_remove_buddy(SB *sb, const char *email)/*{{{*/
 			bud = prev->next;
 			prev->next = prev->next->next;
 			sbbuddy_destroy(bud);
+			sb->count--;
 			return TRUE;
 		}
 	}
@@ -357,6 +361,10 @@ int _SB_disp_BYE(SB* sb, char * command) /* somebody leaves {{{*/
 		return 1;
 	}
 	return 0;
+}/*}}}*/
+int SB_buddy_count(SB *sb)/*{{{*/
+{
+	return sb->count;
 }/*}}}*/
 struct sbdispatch _sb_dispatch_table[] =/*{{{*/
 {
@@ -410,10 +418,11 @@ SBMsgData *SB_msg_new(SB *sb, MsgType type, const char *cmd, const char* arg, co
 	data->appendID = appendID;
 	return data;
 }/*}}}*/
-SBNotifyData *SB_notify_data_new(Notify notify)/*{{{*/
+SBNotifyData *SB_notify_data_new(SB *sb, Notify notify)/*{{{*/
 {
 	SBNotifyData *data;
 	data = xmalloc(sizeof(*data));
+	data->sb = sb;
 	data->type = notify;
 	return data;
 }/*}}}*/

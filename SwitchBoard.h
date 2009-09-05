@@ -19,6 +19,7 @@ struct _switchboard
 	int sesid;
 	int flag;
 	SB *next;
+	unsigned int count;
 	CmdQueue notifies;
 };
 #define SB_CONNECTED 1
@@ -38,7 +39,8 @@ SBBuddy *sbbuddy_new(const char *nick, const char *email, int cid);
 void sbbuddy_destroy(SBBuddy *bd);
 int SB_sendmsg(SB *sb, const char *msg);
 bool SB_dispatch_command(SB *sb, Command *c);
-SBNotifyData *SB_notify_data_new(Notify notify);
+SBNotifyData *SB_notify_data_new(SB *sb, Notify notify);
+int SB_buddy_count(SB*);
 void SB_notify_data_destroy(void *notifydata);
 void SB_msg_destroy(void *data);
 SBMsgData *SB_msg_new(SB *sb, MsgType type, const char *cmd, const char* arg, const char *payload, int length, bool appendID);

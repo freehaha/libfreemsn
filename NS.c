@@ -27,6 +27,7 @@ int _NS_add_command(NS *ns, char *command, char *argument, bool appendID);
 int isBigEndian(void);
 void _NS_calculate_chl(char *input, char *output);
 unsigned int swapInt(unsigned int dw);
+int _NS_push_command(NS *ns, Command *c);
 
 /* dispatches */
 struct nsdispatch _ns_dispatch_table[];
@@ -340,12 +341,24 @@ int _NS_add_command(NS *ns, char *command, char *argument, bool appendID)/*{{{*/
 	cmdqueue_push(ns->cmdq, c);
 	return 1;
 }/*}}}*/
+int _NS_push_command(NS *ns, Command *c)/*{{{*/
+{
+	if(!(ns->flag & NS_CONNECTED))
+	{
+		fprintf(stderr, "_NS_add_command: Not connected yet.\n");
+		if(c) command_destroy(c);
+		return 0;
+	}
+	if(!c) return 0;
+	cmdqueue_push(ns->cmdq, c);
+	return 1;
+}/*}}}*/
 void NS_request_SB(NS *ns)/*{{{*/
 {
 	Command *c;
 	NSNotifyData *data = NS_notify_data_new(NOTIFY_REQSB);
 	c = command_new(CMD_NS_NOTIFY, data, NS_notify_data_destroy);
-	cmdqueue_push(ns->cmdq, c);
+	_NS_push_command(ns, c);
 }/*}}}*/
 
 int NS_sb_invite(NS *ns, SB *sb, const char *email)/*{{{*/
@@ -353,12 +366,11 @@ int NS_sb_invite(NS *ns, SB *sb, const char *email)/*{{{*/
 	Command *c;
 	SBMsgData *data = SB_msg_new(sb, MSG_MESSAGE, "CAL", email, NULL, 0, TRUE);
 	c = command_new(CMD_SB, data, SB_msg_destroy);
-	cmdqueue_push(ns->cmdq, c);
-	return 1;
+	return _NS_push_command(ns, c);
 }/*}}}*/
-/* NOTE: payload WILL be freed after pop from the queue */
 int _NS_add_payload(NS *ns, char *command, char *argument, char *payload, int len, bool appendID)/*{{{*/
 {
+	/* NOTE: payload WILL be freed after pop from the queue */
 	if(! (ns->flag & NS_CONNECTED) )
 	{
 		fprintf(stderr, "_NS_add_command: Not connected yet.\n");
@@ -374,8 +386,7 @@ int _NS_add_payload(NS *ns, char *command, char *argument, char *payload, int le
 	data->length = len;
 	data->time = time(NULL);
 	c = command_new(CMD_NS, data, NS_msg_destroy);
-	cmdqueue_push(ns->cmdq, c);
-	return 1;
+	return _NS_push_command(ns, c);
 }/*}}}*/
 int _NS_send_command(NS *ns, char *command, char *argument, bool appendID)/*{{{*/
 {

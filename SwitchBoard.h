@@ -1,0 +1,62 @@
+#ifndef SWITCHBOARD_D6RK4SQJ
+#define SWITCHBOARD_D6RK4SQJ
+
+#include "msnlib.h"
+#include "NS.h"
+#include "TCPClient.h"
+#include "ContactList.h"
+#include "Account.h"
+#include "CmdQueue.h"
+
+struct _switchboard
+{
+	unsigned long id;
+	int TrID;
+	TCPClient *client;
+	SBBuddy *list;
+	Account *account;
+	char *ticket;
+	int sesid;
+	int flag;
+	SB *next;
+	CmdQueue notifies;
+};
+#define SB_CONNECTED 1
+
+struct _sbbuddy {
+	char *nick;
+	char *email;
+	//Contact *buddy;
+	int cid;
+	SBBuddy *next;
+};
+
+SB *SB_new(Account *account, const char *server, int port, const char *ticket, int sesid);
+int SB_connect(SB *sb);
+void SB_destroy(SB *sb);
+SBBuddy *sbbuddy_new(const char *nick, const char *email, int cid);
+void sbbuddy_destroy(SBBuddy *bd);
+int SB_sendmsg(SB *sb, const char *msg);
+bool SB_dispatch_command(SB *sb, Command *c);
+SBNotifyData *SB_notify_data_new(Notify notify);
+void SB_notify_data_destroy(void *notifydata);
+void SB_msg_destroy(void *data);
+
+int SB_dispatch_nblocking(SB *sb, int sec, int usec);
+struct sbdispatch
+{
+	const char * cmd;
+	SBDispatchFunc func;
+};
+
+
+int _SB_disp_MSG(SB* sb, char * command); /* messenges */
+int _SB_disp_ANS(SB* sb, char * command); /* answer response to join notification */
+int _SB_disp_USR(SB* sb, char * command); /* authentication confirm */
+int _SB_disp_CAL(SB* sb, char * command); /* success of calling buddy */
+int _SB_disp_JOI(SB* sb, char * command); /* somebody joins */
+int _SB_disp_IRO(SB* sb, char * command); /* init user list */
+int _SB_disp_BYE(SB* sb, char * command); /* somebody leaves */
+int _SB_disp_NAK(SB *sb, char * commnad); /* failed sending message */
+extern struct sbdispatch _sb_dispatch_table[];
+#endif /* end of include guard: SWITCHBOARD_D6RK4SQJ */

@@ -92,11 +92,6 @@ int SB_sendmsg(SB *sb, const char *msg)/*{{{*/
 	xfree(msgbuf);
 	return len;
 }/*}}}*/
-int SB_invite(SB *sb, const char *email)/*{{{*/
-{
-	_SB_send_command(sb, "CAL", email, TRUE);
-	return 1;
-}/*}}}*/
 void SB_destroy(SB *sb)/*{{{*/
 {
 	SBBuddy *tmp;
@@ -380,13 +375,40 @@ void SB_msg_destroy(void *data)/*{{{*/
 	SBMsgData *msg = data;
 	if(!data)
 	{
-		fprintf(stderr, "NULL data passed to _SB_msg_destroy\n");
+		fprintf(stderr, "NULL data passed to SB_msg_destroy\n");
 		return;
 	}
 	xfree(msg->cmd);
 	xfree(msg->argument);
 	xfree(msg->payload);
 	xfree(data);
+}/*}}}*/
+SBMsgData *SB_msg_new(SB *sb, MsgType type, const char *cmd, const char* arg, const char *payload, int length, bool appendID)/*{{{*/
+{
+	SBMsgData *data = xmalloc(sizeof(*data));
+	data->sb = sb;
+	data->type = type;
+	data->cmd = strdup(cmd);
+	data->argument = (arg&&*arg)?strdup(arg):NULL;
+	if(type == MSG_PAYLOAD)
+	{
+		if(!payload)
+		{
+			fprintf(stderr, "NULL paload!\n");
+			return NULL;
+		}
+		data->payload = xmalloc(length);
+		memcpy(data->payload, payload, length);
+		data->length = length;
+	}
+	else
+	{
+		data->payload = NULL;
+		data->length = 0;
+	}
+	data->time = time(0);
+	data->appendID = appendID;
+	return data;
 }/*}}}*/
 SBNotifyData *SB_notify_data_new(Notify notify)/*{{{*/
 {

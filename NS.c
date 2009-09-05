@@ -348,6 +348,14 @@ void NS_request_SB(NS *ns)/*{{{*/
 	cmdqueue_push(ns->cmdq, c);
 }/*}}}*/
 
+int NS_sb_invite(NS *ns, SB *sb, const char *email)/*{{{*/
+{
+	Command *c;
+	SBMsgData *data = SB_msg_new(sb, MSG_MESSAGE, "CAL", email, NULL, 0, TRUE);
+	c = command_new(CMD_SB, data, SB_msg_destroy);
+	cmdqueue_push(ns->cmdq, c);
+	return 1;
+}/*}}}*/
 /* NOTE: payload WILL be freed after pop from the queue */
 int _NS_add_payload(NS *ns, char *command, char *argument, char *payload, int len, bool appendID)/*{{{*/
 {

@@ -41,6 +41,7 @@ bool SB_dispatch_command(SB *sb, Command *c);
 SBNotifyData *SB_notify_data_new(Notify notify);
 void SB_notify_data_destroy(void *notifydata);
 void SB_msg_destroy(void *data);
+SBMsgData *SB_msg_new(SB *sb, MsgType type, const char *cmd, const char* arg, const char *payload, int length, bool appendID);
 
 int SB_dispatch_nblocking(SB *sb, int sec, int usec);
 struct sbdispatch

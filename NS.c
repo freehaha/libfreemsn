@@ -469,7 +469,7 @@ int _NS_load_ssoreq(char *buffer, char *username, char *password, char *policy)/
 	char *line = NULL;
 	char *pbuffer = buffer;
 	size_t size;
-	int sz, length;
+	int sz = 0, length;
 	fp = fopen("ssoreq.xml", "r");
 	if(!fp)
 	{
@@ -522,8 +522,6 @@ void _NS_do_ssoreq(NS *ns, char *policy, char* nonce)/*{{{*/
 		return;
 	}
 
-	/* TODO: fit in username and password */
-	//len = _NS_load_ssoreq(buf, ns->account->username, ns->account->pwd, policy);
 	len = _NS_load_ssoreq(buf, ns->account->username, ns->account->pwd, policy);
 	hlen = sprintf(header, "POST /RST.srf HTTP/1.1\r\n"
 			"Host: login.live.com\r\n"

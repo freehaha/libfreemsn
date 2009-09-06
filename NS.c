@@ -147,6 +147,7 @@ void *NS_loop(void *data)/*{{{*/
 }/*}}}*/
 bool NS_dispatch_commands(NS *ns)/*{{{*/
 {
+	if(! (ns->flag & NS_CONNECTED)) return TRUE;
 	if(cmdqueue_empty(ns->cmdq)) return TRUE;
 	Command *c = cmdqueue_pop(ns->cmdq);
 	while(c)

@@ -16,6 +16,8 @@ int account_sbmsg_cb(Account *ac, Notify type, void *vSB, void *data, void *init
 {
 	SBNotifyData *note = data;
 	SBNotifyMsg *msg = note->data;
+	if(!*msg->text)
+		return 1;
 	DMSG(stderr, "SB MSG: %s(%s): %s\n", msg->email, msg->nick, msg->text);
 	return 1;
 }

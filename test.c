@@ -41,7 +41,7 @@ int main(int argc, const char **argv)
 				char email[64];
 				if(sb && sscanf(buf, "3 %[^\n]", email) == 1)
 				{
-					NS_sb_invite(ns, sb, email);
+					SB_invite(sb, email);
 					DMSG(stderr, "inviting %s\n", email);
 				}
 			}

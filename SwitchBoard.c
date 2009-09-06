@@ -61,6 +61,7 @@ SB *SB_new(Account *account, const char *server, int port, const char *ticket, i
 	sb->ticket = strdup(ticket);
 	sb->sesid = sesid;
 	sb->account = account;
+	sb->cmdq = account->ns->cmdq;
 	sb->notifies = account->ns->notifies;
 	sb->id = _sbid;
 	_sbid++;
@@ -158,7 +159,19 @@ int _SB_dispatch(SB *ns, char *line)/*{{{*/
 	fprintf(stderr, "unknown command: %s\n", arg);
 	return -1;
 }/*}}}*/
+int _SB_push_command(SB *sb, Command *c)
+{
+	cmdqueue_push(sb->cmdq, c);
+	return 1;
+}
 
+int SB_invite(SB *sb, const char *email)/*{{{*/
+{
+	Command *c;
+	SBMsgData *data = SB_msg_new(sb, MSG_MESSAGE, "CAL", email, NULL, 0, TRUE);
+	c = command_new(CMD_SB, data, SB_msg_destroy);
+	return _SB_push_command(sb, c);
+}/*}}}*/
 /* send/recv functions {{{*/
 int _SB_send_command(SB *sb, const char *command, const char *argument, bool appendID)/*{{{*/
 {

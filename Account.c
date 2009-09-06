@@ -2,17 +2,17 @@
 
 static uint cid = 0;
 #ifdef DEBUG
-int account_shutdown_cb(Account *ac, Notify type, void *ns, void *data, void *init)
+int account_shutdown_cb(Account *ac, int type, void *ns, void *data, void *init)
 {
 	DMSG(stderr, "AC receives shutdown from NS..\n");
 	return -1;
 }
-int account_sbnak_cb(Account *ac, Notify type, void *vSB, void *data, void *init)
+int account_sbnak_cb(Account *ac, int type, void *vSB, void *data, void *init)
 {
 	DMSG(stderr, "SB NAK\n");
 	return 1;
 }
-int account_sbmsg_cb(Account *ac, Notify type, void *vSB, void *data, void *init)
+int account_sbmsg_cb(Account *ac, int type, void *vSB, void *data, void *init)
 {
 	SBNotifyData *note = data;
 	SBNotifyMsg *msg = note->data;
@@ -36,13 +36,13 @@ Account *account_new(const char *nick, const char *name, const char *pwd)/*{{{*/
 	memset(ac->nscbtable, 0, sizeof(AC_CALLBACK)*(uint)NOTIFY_MAX);
 	memset(ac->sbcbtable, 0, sizeof(AC_CALLBACK)*(uint)NOTIFY_MAX);
 #ifdef DEBUG
-	account_addcallback(ac->nscbtable, NOTIFY_SHUTDOWN, account_shutdown_cb, NULL, 0);
-	account_addcallback(ac->sbcbtable, NOTIFY_MSG, account_sbmsg_cb, NULL, 0);
-	account_addcallback(ac->sbcbtable, NOTIFY_NAK, account_sbnak_cb, NULL, 0);
+	account_addcallback(ac->nscbtable, NS_NOTIFY_SHUTDOWN, account_shutdown_cb, NULL, 0);
+	account_addcallback(ac->sbcbtable, SB_NOTIFY_MSG, account_sbmsg_cb, NULL, 0);
+	account_addcallback(ac->sbcbtable, SB_NOTIFY_NAK, account_sbnak_cb, NULL, 0);
 #endif
 	return ac;
 }/*}}}*/
-int account_addcallback(AccountCallbackTable table, Notify type, AC_CALLBACK_FUNC cb, void *initdata, uint flag)/*{{{*/
+int account_addcallback(AccountCallbackTable table, uint type, AC_CALLBACK_FUNC cb, void *initdata, uint flag)/*{{{*/
 {
 	AC_CALLBACK_ELEM *elem = xmalloc(sizeof(*elem));
 	elem->cb = cb;
@@ -60,7 +60,7 @@ int account_addcallback(AccountCallbackTable table, Notify type, AC_CALLBACK_FUN
 	}
 	return elem->id;
 }/*}}}*/
-void account_rmcallback(AccountCallbackTable table, Notify type, uint id)/*{{{*/
+void account_rmcallback(AccountCallbackTable table, uint type, uint id)/*{{{*/
 {
 	AC_CALLBACK_ELEM *elem, *prev;
 	if(!table[(uint)type].front)
@@ -97,7 +97,7 @@ void account_rmcallback(AccountCallbackTable table, Notify type, uint id)/*{{{*/
 	}
 	fprintf(stderr, "account_rmcallback: non-existing callback id\n");
 }/*}}}*/
-int _account_dispatch_notify(Account *ac, Notify type, void *data)/*{{{*/
+int _account_dispatch_notify(Account *ac, CmdType type, void *data)/*{{{*/
 {
 	int ret = 0;
 	int res;
@@ -224,7 +224,7 @@ bool account_connect(Account *account)/*{{{*/
 	return ret;
 }/*}}}*/
 
-int account_reqsb_cb(Account *ac, Notify type, void *vSB, void *data, void *init)
+int account_reqsb_cb(Account *ac, int type, void *vSB, void *data, void *init)
 {
 	*(SB**)init = vSB;
 	DMSG(stderr, "requested SB arrived.\n");
@@ -233,9 +233,9 @@ int account_reqsb_cb(Account *ac, Notify type, void *vSB, void *data, void *init
 
 void account_request_SB(Account *ac, SB **sb)
 {
-	uint id = account_addcallback(ac->sbcbtable, NOTIFY_REQSB, account_reqsb_cb, (void*)sb, ACCB_ONCE);
+	uint id = account_addcallback(ac->sbcbtable, SB_NOTIFY_REQSB, account_reqsb_cb, (void*)sb, ACCB_ONCE);
 	if(!NS_request_SB(ac->ns))
 	{
-		account_rmcallback(ac->sbcbtable, NOTIFY_REQSB, id);
+		account_rmcallback(ac->sbcbtable, SB_NOTIFY_REQSB, id);
 	}
 }

@@ -41,7 +41,11 @@ void cmdqueue_push(CQ q, Command *cmd)
 Command *cmdqueue_pop(CQ q)
 {
 	pthread_mutex_lock(&q->lock);
-	if(cmdqueue_empty(q)) return NULL;
+	if(cmdqueue_empty(q))
+	{
+		pthread_mutex_unlock(&q->lock);
+		return NULL;
+	}
 	Command *c = q->front;
 	q->front = c->next;
 	q->size--;

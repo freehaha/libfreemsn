@@ -57,7 +57,7 @@ int NS_dispatch_nblocking(NS *ns, int sec, int usec);
 bool NS_dispatch_commands(NS *ns);
 void NS_remove_SB(NS *ns, unsigned long int sbid);
 bool NS_fork(NS *ns);
-NSNotifyData *NS_notify_data_new(Notify notify);
+NSNotifyData *NS_notify_data_new(NSNotify notify);
 void NS_notify_data_destroy(void *notifydata);
 void NS_msg_destroy(void *data);
 int NS_request_SB(NS *ns);

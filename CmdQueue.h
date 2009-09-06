@@ -14,11 +14,14 @@ enum _msgtype_t
 {
 	MSG_MESSAGE, MSG_PAYLOAD, MSG_MAX, _MSG_MAX=INT_MAX
 };
-enum _notify_e
+enum _nsnotify_e
 {
-	NOTIFY_SHUTDOWN, NOTIFY_MSG, NOTIFY_REQSB, NOTIFY_NEWSB, NOTIFY_NAK, NOTIFY_MAX,  _NTY_MAX=INT_MAX
+	NS_NOTIFY_SHUTDOWN, NS_NOTIFY_REQSB, NS_NOTIFY_NEWSB, NOTIFY_MAX,  _NTY_MAX=INT_MAX
 };
-
+enum _sbnotify_e
+{
+	SB_NOTIFY_SHUTDOWN, SB_NOTIFY_MSG, SB_NOTIFY_REQSB, SB_NOTIFY_NEWSB, SB_NOTIFY_NAK, SB_NOTIFY_MAX, _SNTY_MAX=INT_MAX
+};
 struct _msgdata_t
 {
 	MsgType type;
@@ -31,13 +34,13 @@ struct _msgdata_t
 };
 struct _nsnotify_t
 {
-	Notify type;
+	NSNotify type;
 	void *data;
 };
 
 struct _sbnotify_t
 {
-	Notify type;
+	SBNotify type;
 	SB *sb;
 	void *data;
 };
@@ -57,7 +60,7 @@ struct _sbmsgdata_t
 struct _sbmsgnotify
 {
 	SB *sb;
-	Notify type;
+	SBNotify type;
 	char *nick;
 	char *email;
 	char *text;

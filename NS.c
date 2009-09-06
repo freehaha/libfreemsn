@@ -69,7 +69,7 @@ void NS_destroy(NS *ns)/*{{{*/
 	if(ns->nsthread)
 	{
 		Command *c;
-		NSNotifyData *data = NS_notify_data_new(NOTIFY_SHUTDOWN);
+		NSNotifyData *data = NS_notify_data_new(NS_NOTIFY_SHUTDOWN);
 		c = command_new(CMD_NS_NOTIFY, data, NS_notify_data_destroy);
 		cmdqueue_push(ns->cmdq, c);
 		pthread_join(ns->nsthread, (void**)&ret);
@@ -122,7 +122,7 @@ void *NS_loop(void *data)/*{{{*/
 			fprintf(stderr, "end\n");
 			/* tell account we're down */
 			Command *c;
-			NSNotifyData *data = NS_notify_data_new(NOTIFY_SHUTDOWN);
+			NSNotifyData *data = NS_notify_data_new(NS_NOTIFY_SHUTDOWN);
 			c = command_new(CMD_NS_NOTIFY, data, NS_notify_data_destroy);
 			cmdqueue_push(ns->notifies, c);
 			ns->nsthread = 0;
@@ -148,7 +148,6 @@ void *NS_loop(void *data)/*{{{*/
 bool NS_dispatch_commands(NS *ns)/*{{{*/
 {
 	if(! (ns->flag & NS_CONNECTED)) return TRUE;
-	if(cmdqueue_empty(ns->cmdq)) return TRUE;
 	Command *c = cmdqueue_pop(ns->cmdq);
 	while(c)
 	{
@@ -177,18 +176,18 @@ bool NS_dispatch_commands(NS *ns)/*{{{*/
 					NSNotifyData *data = c->data;
 					switch(data->type)
 					{
-						case NOTIFY_SHUTDOWN:
+						case NS_NOTIFY_SHUTDOWN:
 							{
 								/* pass it to Account */
 								Command *c;
-								NSNotifyData *data = NS_notify_data_new(NOTIFY_SHUTDOWN);
+								NSNotifyData *data = NS_notify_data_new(NS_NOTIFY_SHUTDOWN);
 								c = command_new(CMD_NS_NOTIFY, data, NS_notify_data_destroy);
 								cmdqueue_push(ns->notifies, c);
 							}
 							DMSG(stderr, "NS: shutting down..\n");
 							return FALSE;
 							break;
-						case NOTIFY_REQSB:
+						case NS_NOTIFY_REQSB:
 							{
 								DMSG(stderr, "SB request from account ...\n");
 								_NS_send_command(ns, "XFR", "SB", TRUE);
@@ -199,22 +198,21 @@ bool NS_dispatch_commands(NS *ns)/*{{{*/
 					}
 				}
 				break;/*}}}*/
-				/* dispatch to SB {{{*/
 			case CMD_SB_NOTIFY:
 			case CMD_SB:
-				{
-					SBMsgData *data = c->data;
-					if(!SB_dispatch_command(data->sb, c))
-						NS_remove_SB(ns, data->sb->id);
-				}
-				break;/*}}}*/
+				break;
 			default:
 				break;
+
 		}
 
 		command_destroy(c);
-		if(cmdqueue_empty(ns->cmdq)) break;
 		c = cmdqueue_pop(ns->cmdq);
+	}
+	SB *sb = NULL;
+	for(sb=ns->sblist;sb;sb=sb->next)
+	{
+		SB_dispatch_commands(sb);
 	}
 	return TRUE;
 }/*}}}*/
@@ -346,7 +344,7 @@ int _NS_push_command(NS *ns, Command *c)/*{{{*/
 int NS_request_SB(NS *ns)/*{{{*/
 {
 	Command *c;
-	NSNotifyData *data = NS_notify_data_new(NOTIFY_REQSB);
+	NSNotifyData *data = NS_notify_data_new(NS_NOTIFY_REQSB);
 	c = command_new(CMD_NS_NOTIFY, data, NS_notify_data_destroy);
 	return _NS_push_command(ns, c);
 }/*}}}*/
@@ -844,7 +842,7 @@ int _NS_disp_XFR(NS * ns, char* command) /* transfer {{{*/
 			ns->sblist = sb;
 		}
 		Command *c;
-		SBNotifyData *data = SB_notify_data_new(sb, NOTIFY_REQSB);
+		SBNotifyData *data = SB_notify_data_new(sb, SB_NOTIFY_REQSB);
 		c = command_new(CMD_SB_NOTIFY, data, SB_notify_data_destroy);
 		cmdqueue_push(ns->notifies, c);
 	}
@@ -978,7 +976,7 @@ int _NS_disp_RNG(NS *ns, char* command) /* ringring {{{*/
 			ns->sblist = sb;
 		}
 		Command *c;
-		SBNotifyData *data = SB_notify_data_new(sb, NOTIFY_NEWSB);
+		SBNotifyData *data = SB_notify_data_new(sb, SB_NOTIFY_NEWSB);
 		c = command_new(CMD_SB_NOTIFY, data, SB_notify_data_destroy);
 		cmdqueue_push(ns->notifies, c);
 	}
@@ -1088,7 +1086,7 @@ void _NS_calculate_chl(char *input, char *output)/*{{{*/
 #undef MAGIC
 
 } /* }}} */
-NSNotifyData *NS_notify_data_new(Notify notify)/*{{{*/
+NSNotifyData *NS_notify_data_new(NSNotify notify)/*{{{*/
 {
 	NSNotifyData *data;
 	data = xmalloc(sizeof(*data));

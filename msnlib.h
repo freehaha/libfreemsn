@@ -34,7 +34,8 @@ typedef struct _sbbuddy SBBuddy;
 typedef struct _account Account;
 typedef struct _cmd_t Command;
 typedef struct _msgdata_t MsgData; /* message to NS */
-typedef enum _notify_e Notify; /* notify types */
+typedef enum _nsnotify_e NSNotify; /* notify types */
+typedef enum _sbnotify_e SBNotify; /* notify types */
 typedef struct _nsnotify_t NSNotifyData; /* notify to NS */
 typedef struct _sbnotify_t SBNotifyData; /* notify to SB */
 typedef struct _sbmsgnotify SBNotifyMsg; /* msg notify from SB */

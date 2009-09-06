@@ -7,6 +7,7 @@ int _SB_send_payload(SB *sb, const char *command, const char *argument, const ch
 int _SB_read_payload(SB *sb, char **buf, int len);
 bool _SB_add_buddy(SB *sb, SBBuddy *bud);
 bool _SB_remove_buddy(SB *sb, const char *email);
+int _SB_push_command(SB *sb, Command *c);
 SBNotifyMsg *_SB_make_notify_msg(SB *sb, const char *email, const char *nick, const char *message, int length);
 const char msgheader[] = "MIME-Version: 1.0\r\n"
 		"Content-Type: text/plain; charset=UTF-8\r\n"
@@ -22,35 +23,51 @@ SBBuddy *sbbuddy_new(const char *nick, const char *email, int cid)/*{{{*/
 	bd->cid = cid;
 	return bd;
 }/*}}}*/
-bool SB_dispatch_command(SB *sb, Command *c)/*{{{*/
+bool SB_dispatch_commands(SB *sb) /* {{{ */
 {
-	switch(c->type)
+	if(cmdqueue_empty(sb->cmdq)) return TRUE;
+	Command *c = cmdqueue_pop(sb->cmdq);
+	while(c)
 	{
-		case CMD_SB:
-			{
-				SBMsgData *data = c->data;
-				switch(data->type)
+		switch(c->type)
+		{
+			case CMD_SB:
 				{
-					case MSG_MESSAGE:
-						_SB_send_command(sb, data->cmd, data->argument, data->appendID);
-						break;
-					case MSG_PAYLOAD:
-						_SB_send_payload(sb, data->cmd, data->argument, data->payload, data->length, data->appendID);
-						break;
-					default:
-						fprintf(stderr, "unknown sbmsg type\n");
-						command_destroy(c);
+					SBMsgData *data = c->data;
+					switch(data->type)
+					{
+						case MSG_MESSAGE:
+							_SB_send_command(sb, data->cmd, data->argument, data->appendID);
+							break;
+						case MSG_PAYLOAD:
+							_SB_send_payload(sb, data->cmd, data->argument, data->payload, data->length, data->appendID);
+							break;
+						default:
+							fprintf(stderr, "unknown sbmsg type\n");
+							command_destroy(c);
+					}
+					break;
 				}
+			case CMD_SB_NOTIFY:
+				{
+					SBNotifyData *data = c->data;
+					switch(data->type)
+					{
+						case SB_NOTIFY_SHUTDOWN:
+							DMSG(stderr, "SB: shutting down..\n");
+							return FALSE;
+							break;
+						default:
+							break;
+					}
+					break;
+				}
+			default:
+				fprintf(stderr, "SB: unknown command\n");
 				break;
-			}
-		case CMD_SB_NOTIFY:
-			{
-				//SBNotifyData *data = c->data;
-				break;
-			}
-		default:
-			fprintf(stderr, "SB: unknown command\n");
-			break;
+		}
+		command_destroy(c);
+		c = cmdqueue_pop(sb->cmdq);
 	}
 	return TRUE;
 }/*}}}*/
@@ -61,12 +78,19 @@ SB *SB_new(Account *account, const char *server, int port, const char *ticket, i
 	sb->ticket = strdup(ticket);
 	sb->sesid = sesid;
 	sb->account = account;
-	sb->cmdq = account->ns->cmdq;
+	sb->cmdq = cmdqueue_new();
 	sb->notifies = account->ns->notifies;
 	sb->id = _sbid;
 	_sbid++;
 	sb->client = tcpclient_new(server, port);
 	return sb;
+}/*}}}*/
+int SB_close(SB *sb)/*{{{*/
+{
+	SBNotifyData *data = SB_notify_data_new(sb, SB_NOTIFY_SHUTDOWN);
+	Command *c = command_new(CMD_SB_NOTIFY, data, SB_notify_data_destroy);
+	_SB_push_command(sb, c);
+	return 1;
 }/*}}}*/
 int SB_connect(SB *sb)/*{{{*/
 {
@@ -86,6 +110,11 @@ int SB_connect(SB *sb)/*{{{*/
 }/*}}}*/
 int SB_sendmsg(SB *sb, const char *msg)/*{{{*/
 {
+	if(SB_buddy_count(sb) <= 0)
+	{
+		fprintf(stderr, "nobody except you is connecting to the SB\n");
+		return TRUE;
+	}
 	char *msgbuf = xmalloc(strlen(msg)+sizeof(msgheader));
 	int len;
 	len = sprintf(msgbuf, "%s%s", msgheader, msg);
@@ -103,6 +132,7 @@ void SB_destroy(SB *sb)/*{{{*/
 		sb->list = tmp;
 	}
 	if(sb->client) tcpclient_destroy(sb->client);
+	cmdqueue_destroy(sb->cmdq);
 	xfree(sb->ticket);
 	xfree(sb);
 }/*}}}*/
@@ -159,12 +189,11 @@ int _SB_dispatch(SB *ns, char *line)/*{{{*/
 	fprintf(stderr, "unknown command: %s\n", arg);
 	return -1;
 }/*}}}*/
-int _SB_push_command(SB *sb, Command *c)
+int _SB_push_command(SB *sb, Command *c)/*{{{*/
 {
 	cmdqueue_push(sb->cmdq, c);
 	return 1;
-}
-
+}/*}}}*/
 int SB_invite(SB *sb, const char *email)/*{{{*/
 {
 	Command *c;
@@ -244,7 +273,7 @@ int _SB_disp_MSG(SB* sb, char * command) /* messenges *//*{{{*/
 		char *pl = NULL;
 		int ret = _SB_read_payload(sb, &pl, len);
 		SBNotifyData *data = xmalloc(sizeof(*data));
-		data->type = NOTIFY_MSG;
+		data->type = SB_NOTIFY_MSG;
 		data->data = _SB_make_notify_msg(sb, email, nick, pl, len);
 		Command *c = command_new(CMD_SB_NOTIFY, data, _SB_notify_msg_destroy);
 		cmdqueue_push(sb->notifies, c);
@@ -278,7 +307,7 @@ int _SB_disp_USR(SB* sb, char * command) /* authentication confirm *//*{{{*/
 }/*}}}*/
 int _SB_disp_NAK(SB *sb, char *commnad)/*{{{*/
 {
-	SBNotifyData *data = SB_notify_data_new(sb, NOTIFY_NAK);
+	SBNotifyData *data = SB_notify_data_new(sb, SB_NOTIFY_NAK);
 	Command *c = command_new(CMD_SB_NOTIFY, data, SB_notify_data_destroy);
 	cmdqueue_push(sb->notifies, c);
 	DMSG(stderr, "SB: NAK\n");
@@ -431,7 +460,7 @@ SBMsgData *SB_msg_new(SB *sb, MsgType type, const char *cmd, const char* arg, co
 	data->appendID = appendID;
 	return data;
 }/*}}}*/
-SBNotifyData *SB_notify_data_new(SB *sb, Notify notify)/*{{{*/
+SBNotifyData *SB_notify_data_new(SB *sb, SBNotify notify)/*{{{*/
 {
 	SBNotifyData *data;
 	data = xmalloc(sizeof(*data));

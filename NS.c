@@ -271,7 +271,14 @@ int NS_dispatch_nblocking(NS *ns, int sec, int usec)/*{{{*/
 		if(SB_dispatch_nblocking(sb, 0, 100) < 0)
 		{
 			DMSG(stderr, "destroying SB %lu\n", sb->id);
-			if(sb_prev) sb_prev->next = sb_next;
+			if(sb == ns->sblist)
+			{
+				ns->sblist = sb->next;
+			}
+			else
+			{
+				sb_prev->next = sb->next;
+			}
 			SB_destroy(sb);
 			continue;
 		}

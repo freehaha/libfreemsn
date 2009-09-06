@@ -315,11 +315,6 @@ void NS_msg_destroy(void *data)/*{{{*/
 }/*}}}*/
 int _NS_add_command(NS *ns, char *command, char *argument, bool appendID)/*{{{*/
 {
-	if(!(ns->flag & NS_CONNECTED))
-	{
-		fprintf(stderr, "_NS_add_command: Not connected yet.\n");
-		return 0;
-	}
 	if( !command || !*command)
 	{
 		fprintf(stderr, "_NS_add_command: adding NULL command !\n");
@@ -344,12 +339,6 @@ int _NS_add_command(NS *ns, char *command, char *argument, bool appendID)/*{{{*/
 }/*}}}*/
 int _NS_push_command(NS *ns, Command *c)/*{{{*/
 {
-	if(!(ns->flag & NS_CONNECTED))
-	{
-		fprintf(stderr, "_NS_add_command: Not connected yet.\n");
-		if(c) command_destroy(c);
-		return 0;
-	}
 	if(!c) return 0;
 	cmdqueue_push(ns->cmdq, c);
 	return 1;
@@ -362,21 +351,9 @@ int NS_request_SB(NS *ns)/*{{{*/
 	return _NS_push_command(ns, c);
 }/*}}}*/
 
-int NS_sb_invite(NS *ns, SB *sb, const char *email)/*{{{*/
-{
-	Command *c;
-	SBMsgData *data = SB_msg_new(sb, MSG_MESSAGE, "CAL", email, NULL, 0, TRUE);
-	c = command_new(CMD_SB, data, SB_msg_destroy);
-	return _NS_push_command(ns, c);
-}/*}}}*/
 int _NS_add_payload(NS *ns, char *command, char *argument, char *payload, int len, bool appendID)/*{{{*/
 {
 	/* NOTE: payload WILL be freed after pop from the queue */
-	if(! (ns->flag & NS_CONNECTED) )
-	{
-		fprintf(stderr, "_NS_add_command: Not connected yet.\n");
-		return 0;
-	}
 	Command *c;
 	MsgData *data = xmalloc(sizeof(MsgData));
 	data->type = MSG_PAYLOAD;

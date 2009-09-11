@@ -279,6 +279,9 @@ int NS_dispatch_nblocking(NS *ns, int sec, int usec)/*{{{*/
 			{
 				sb_prev->next = sb->next;
 			}
+			SBNotifyData *data = SB_notify_data_new(sb, SB_NOTIFY_SHUTDOWN);
+			Command *cmd = command_new(CMD_SB_NOTIFY, data, SB_notify_data_destroy);
+			cmdqueue_push(ns->notifies, cmd);
 			SB_destroy(sb);
 			continue;
 		}

@@ -52,6 +52,7 @@ int _NS_disp_UUX(NS *ns, char* command); /* personal status */
 int _NS_disp_FLN(NS *ns, char* command); /* buddy goes offline */
 int _NS_disp_RNG(NS *ns, char* command); /* ringring */
 int _NS_disp_PRP(NS *ns, char* command); /* PRP */
+int _NS_disp_OUT(NS *ns, char* command); /* OUT */
 /* }}} */
 
 NS *NS_new(Account *account)/*{{{*/
@@ -680,6 +681,7 @@ struct nsdispatch _ns_dispatch_table[] = /*{{{*/
 	{"XFR", _NS_disp_XFR},
 	{"MSG", _NS_disp_MSG},
 	{"CHL", _NS_disp_CHL},
+	{"OUT", _NS_disp_OUT},
 	{"GCF", _NS_disp_GCF},
 	{"SBS", _NS_disp_SBS},
 	{"USR", _NS_disp_USR},
@@ -1002,6 +1004,11 @@ int _NS_disp_QNG(NS *ns, char *command) /* end of ping {{{*/
 	}
 	return 1;
 }/*}}}*/
+int _NS_disp_OUT(NS *ns, char *command) /* kicked {{{ */
+{
+	NS_destroy(ns);
+	return 1;
+}/* }}} */
 
 /* base64 conversions {{{ */
 char *unbase64(unsigned char *input, int length)

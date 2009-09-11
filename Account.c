@@ -32,7 +32,7 @@ Account *account_new(const char *nick, const char *name, const char *pwd)/*{{{*/
 	ac->ns = NS_new(ac);
 	ac->nscbtable = xmalloc(sizeof(AC_CALLBACK)*(uint)NOTIFY_MAX);
 	ac->sbcbtable = xmalloc(sizeof(AC_CALLBACK)*(uint)NOTIFY_MAX);
-	ac->notifies = ac->ns->notifies;
+	ac->notifications = ac->ns->notifications;
 	memset(ac->nscbtable, 0, sizeof(AC_CALLBACK)*(uint)NOTIFY_MAX);
 	memset(ac->sbcbtable, 0, sizeof(AC_CALLBACK)*(uint)NOTIFY_MAX);
 #ifdef DEBUG
@@ -148,9 +148,9 @@ int _account_dispatch_notify(Account *ac, CmdType type, void *data)/*{{{*/
 }/*}}}*/
 int _account_check_notify(Account *ac)/*{{{*/
 {
-	if(cmdqueue_empty(ac->notifies)) return 0;
+	if(cmdqueue_empty(ac->notifications)) return 0;
 	int ret;
-	Command *c = cmdqueue_pop(ac->notifies);
+	Command *c = cmdqueue_pop(ac->notifications);
 	if(c->type == CMD_NS_NOTIFY || c->type == CMD_SB_NOTIFY)
 	{
 		ret = _account_dispatch_notify(ac, c->type, c->data);

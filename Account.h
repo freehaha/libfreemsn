@@ -33,7 +33,7 @@ struct _account
 	Account *next;
 	AccountCallbackTable nscbtable;
 	AccountCallbackTable sbcbtable;
-	CmdQueue notifies;
+	CmdQueue notifications;
 	int flag;
 };
 

@@ -20,7 +20,7 @@ struct _NS
 	int nextping;
 	ContactList *contacts;
 	CmdQueue cmdq;
-	CmdQueue notifies;
+	CmdQueue notifications;
 	pthread_t nsthread;
 };
 #define NS_WAITFORTRID 1

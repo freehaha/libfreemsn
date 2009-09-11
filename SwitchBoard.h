@@ -21,7 +21,7 @@ struct _switchboard
 	SB *next;
 	unsigned int count;
 	CmdQueue cmdq;
-	CmdQueue notifies;
+	CmdQueue notifications;
 };
 #define SB_CONNECTED 1
 

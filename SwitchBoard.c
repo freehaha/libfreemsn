@@ -79,7 +79,7 @@ SB *SB_new(Account *account, const char *server, int port, const char *ticket, i
 	sb->sesid = sesid;
 	sb->account = account;
 	sb->cmdq = cmdqueue_new();
-	sb->notifies = account->ns->notifies;
+	sb->notifications = account->ns->notifications;
 	sb->id = _sbid;
 	_sbid++;
 	sb->client = tcpclient_new(server, port);
@@ -276,7 +276,7 @@ int _SB_disp_MSG(SB* sb, char * command) /* messenges *//*{{{*/
 		data->type = SB_NOTIFY_MSG;
 		data->data = _SB_make_notify_msg(sb, email, nick, pl, len);
 		Command *c = command_new(CMD_SB_NOTIFY, data, _SB_notify_msg_destroy);
-		cmdqueue_push(sb->notifies, c);
+		cmdqueue_push(sb->notifications, c);
 		xfree(pl);
 		return ret;
 	}
@@ -309,7 +309,7 @@ int _SB_disp_NAK(SB *sb, char *commnad)/*{{{*/
 {
 	SBNotifyData *data = SB_notify_data_new(sb, SB_NOTIFY_NAK);
 	Command *c = command_new(CMD_SB_NOTIFY, data, SB_notify_data_destroy);
-	cmdqueue_push(sb->notifies, c);
+	cmdqueue_push(sb->notifications, c);
 	DMSG(stderr, "SB: NAK\n");
 	return 0;
 }/*}}}*/

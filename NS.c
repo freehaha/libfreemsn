@@ -60,7 +60,7 @@ NS *NS_new(Account *account)/*{{{*/
 	memset(ns, 0, sizeof(NS));
 	ns->account = account;
 	ns->cmdq = cmdqueue_new();
-	ns->notifies = cmdqueue_new();
+	ns->notifications = cmdqueue_new();
 	return ns;
 }/*}}}*/
 void NS_destroy(NS *ns)/*{{{*/
@@ -86,7 +86,7 @@ void NS_destroy(NS *ns)/*{{{*/
 		ns->sblist = sb;
 	}
 	if(ns->cmdq) cmdqueue_destroy(ns->cmdq);
-	if(ns->notifies) cmdqueue_destroy(ns->notifies);
+	if(ns->notifications) cmdqueue_destroy(ns->notifications);
 	xfree(ns);
 	ERR_free_strings();
 }/*}}}*/
@@ -124,7 +124,7 @@ void *NS_loop(void *data)/*{{{*/
 			Command *c;
 			NSNotifyData *data = NS_notify_data_new(NS_NOTIFY_SHUTDOWN);
 			c = command_new(CMD_NS_NOTIFY, data, NS_notify_data_destroy);
-			cmdqueue_push(ns->notifies, c);
+			cmdqueue_push(ns->notifications, c);
 			ns->nsthread = 0;
 			pthread_exit(0);
 		}
@@ -182,7 +182,7 @@ bool NS_dispatch_commands(NS *ns)/*{{{*/
 								Command *c;
 								NSNotifyData *data = NS_notify_data_new(NS_NOTIFY_SHUTDOWN);
 								c = command_new(CMD_NS_NOTIFY, data, NS_notify_data_destroy);
-								cmdqueue_push(ns->notifies, c);
+								cmdqueue_push(ns->notifications, c);
 							}
 							DMSG(stderr, "NS: shutting down..\n");
 							return FALSE;
@@ -281,7 +281,7 @@ int NS_dispatch_nblocking(NS *ns, int sec, int usec)/*{{{*/
 			}
 			SBNotifyData *data = SB_notify_data_new(sb, SB_NOTIFY_SHUTDOWN);
 			Command *cmd = command_new(CMD_SB_NOTIFY, data, SB_notify_data_destroy);
-			cmdqueue_push(ns->notifies, cmd);
+			cmdqueue_push(ns->notifications, cmd);
 			SB_destroy(sb);
 			continue;
 		}
@@ -854,7 +854,7 @@ int _NS_disp_XFR(NS * ns, char* command) /* transfer {{{*/
 		Command *c;
 		SBNotifyData *data = SB_notify_data_new(sb, SB_NOTIFY_REQSB);
 		c = command_new(CMD_SB_NOTIFY, data, SB_notify_data_destroy);
-		cmdqueue_push(ns->notifies, c);
+		cmdqueue_push(ns->notifications, c);
 	}
 	else
 	{
@@ -988,7 +988,7 @@ int _NS_disp_RNG(NS *ns, char* command) /* ringring {{{*/
 		Command *c;
 		SBNotifyData *data = SB_notify_data_new(sb, SB_NOTIFY_NEWSB);
 		c = command_new(CMD_SB_NOTIFY, data, SB_notify_data_destroy);
-		cmdqueue_push(ns->notifies, c);
+		cmdqueue_push(ns->notifications, c);
 	}
 	return 1;
 }/*}}}*/

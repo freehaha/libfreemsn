@@ -56,15 +56,6 @@ struct _sbmsgdata_t
 	int length;
 	long int time;
 };
-/* got message from SB */
-struct _sbmsgnotify
-{
-	SB *sb;
-	SBNotify type;
-	char *nick;
-	char *email;
-	char *text;
-};
 
 struct _cmd_t
 {

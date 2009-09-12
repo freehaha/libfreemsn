@@ -8,6 +8,7 @@ int _SB_read_payload(SB *sb, char **buf, int len);
 bool _SB_add_buddy(SB *sb, SBBuddy *bud);
 bool _SB_remove_buddy(SB *sb, const char *email);
 int _SB_push_command(SB *sb, Command *c);
+SBMsgType StrToSBMsgType(const char *type);
 SBNotifyMsg *_SB_make_notify_msg(SB *sb, const char *email, const char *nick, const char *message, int length);
 const char msgheader[] = "MIME-Version: 1.0\r\n"
 		"Content-Type: text/plain; charset=UTF-8\r\n"
@@ -225,11 +226,19 @@ int _SB_read_payload(SB *sb, char **buf, int len)/*{{{*/
 	return _msn_read_payload(sb->client, buf, len);
 }/*}}}*/
 /*}}}*/
+SBMsgType StrToSBMsgType(const char *type)/*{{{*/
+{
+	if(!strncmp(type, "text/x-msmsgscontrol", 20)) return SBMSG_CONTROL;
+	else if (!strncmp(type, "text/x-msmsgsinvite", 19)) return SBMSG_INVITE;
+	else if (!strncmp(type, "application/x-msnmsgrp2p", 24)) return  SBMSG_P2P;
+	else return SBMSG_TEXT;
+}/*}}}*/
 SBNotifyMsg *_SB_make_notify_msg(SB *sb, const char *email, const char *nick, const char *message, int length)/*{{{*/
 {
 	char line[256];
 	char *msg;
 	SBNotifyMsg *data;
+	SBMsgType msgtype;
 	int size = 0;
 	int ret;
 	ret = 256;
@@ -237,6 +246,11 @@ SBNotifyMsg *_SB_make_notify_msg(SB *sb, const char *email, const char *nick, co
 	/* FIXME: header discarded */
 	while(line[0])
 	{
+		if(!strncmp(line, "Content-Type: ",14))
+		{
+			DMSG(stderr, "msg type: %s\n", line+14);
+			msgtype = StrToSBMsgType(line+14);
+		}
 		size += ret;
 		ret = 256;
 		message = get_one_line(message, line, &ret);
@@ -246,6 +260,7 @@ SBNotifyMsg *_SB_make_notify_msg(SB *sb, const char *email, const char *nick, co
 	msg = xmalloc(length-size+1);
 	memcpy(msg, message, length-size);
 	msg[length-size] = '\0';
+	data->msgtype = msgtype;
 	data->sb = sb;
 	data->nick = strdup(nick);
 	data->email = strdup(email);

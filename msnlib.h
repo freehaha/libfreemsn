@@ -48,6 +48,7 @@ typedef struct _contact Contact;
 typedef struct _contactlist ContactList;
 typedef ContactList CL;
 typedef enum _status Status;
+typedef enum _sbmsgtype SBMsgType;
 
 
 #include "TCPClient.h"

@@ -17,6 +17,7 @@ struct _OIM_t
 	char *nick;
 	char *id;
 	char *text;
+	uint sid;
 	OIM *next;
 };
 typedef OIMList OL;
@@ -25,8 +26,10 @@ OIMList *oimlist_getlist(const char* oticket);
 OIMList *oimlist_new();
 void oimlist_destroy(OIMList *olist);
 void oimlist_append(OIMList *olist, OIM *oim);
+void oimlist_remove(OL *ol, OIM *o);
 
-char *oim_fetch(OIM *o);
+char *oim_fetch(OL *ol, OIM *o);
+void oim_delete(OL *ol, OIM *o);
 OIM *oim_new(const char *email, const char *nick, const char *id);
 void oim_destroy(OIM *oim);
 

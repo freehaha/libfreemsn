@@ -30,6 +30,7 @@ struct _tcpclient
 
 struct _httpheader {
 	int content_length;
+	int code;
 };
 
 typedef enum {

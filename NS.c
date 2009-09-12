@@ -811,6 +811,8 @@ int _NS_disp_MSG(NS *ns, char *command)/*{{{*/
 			fprintf(stderr, "offline messages: \n");
 			for(im=o->list;im;im=im->next)
 			{
+				oim_fetch(o, im);
+				oim_delete(o, im);
 				fprintf(stderr, "from: %s\tnick: %s\tid: %s\n", im->from, im->nick, im->id);
 			}
 #endif

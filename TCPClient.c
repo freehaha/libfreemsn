@@ -207,8 +207,10 @@ HTTPHeader *http_parse_header(char *input)
 	{
 		input += strlen(line)+1;
 		if(!strncmp(line, "Content-Length", 14))
-		{
 			sscanf(line, "Content-Length: %d", &header->content_length);
+		else if(sscanf(line, "HTTP/1.%*d %d OK", &header->code) == 1)
+		{
+			continue;
 		}
 	}
 	return header;

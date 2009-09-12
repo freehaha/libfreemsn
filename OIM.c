@@ -6,8 +6,9 @@
 int _oim_loadreq(char **req, char *filename);
 int _oim_do_fetch(OIMList *list);
 int _oim_parse_maildata(OL *ol, xmlDocPtr doc);
+int _oim_parse_message(OIM *o, xmlDocPtr doc);
 
-const char oim_getmd_req_header[] = 
+const char oim_getmd_req_header[] = /*{{{*/
 "POST /rsi/rsi.asmx HTTP/1.1\r\n"
 "Accept: */*\r\n"
 "SOAPAction: \"http://www.hotmail.msn.com/ws/2004/09/oim/rsi/GetMetadata\"\r\n"
@@ -16,10 +17,7 @@ const char oim_getmd_req_header[] =
 "User-Agent: Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1; .NET CLR 1.1.4322; .NET CLR 2.0.50727; Windows Live Messenger 8.0.0812)\r\n"
 "Host: rsi.hotmail.com\r\n"
 "Connection: Keep-Alive\r\n"
-"Cache-Control: no-cache\r\n\r\n";
-
-
-
+"Cache-Control: no-cache\r\n\r\n";/*}}}*/
 const char oim_getmd_req[] = "<?xml version=\"1.0\" encoding=\"utf-8\"?>" /* {{{ */
 "<soap:Envelope xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\""
                " xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\""
@@ -34,8 +32,7 @@ const char oim_getmd_req[] = "<?xml version=\"1.0\" encoding=\"utf-8\"?>" /* {{{
   "<GetMetadata xmlns=\"http://www.hotmail.msn.com/ws/2004/09/oim/rsi\" />"
 "</soap:Body>"
 "</soap:Envelope>";/*}}}*/
-
-const char oim_getm_req_header[] = 
+const char oim_getm_req_header[] = /* {{{*/
 "POST /rsi/rsi.asmx HTTP/1.1\r\n"
 "Accept: */*\r\n"
 "SOAPAction: \"http://www.hotmail.msn.com/ws/2004/09/oim/rsi/GetMessage\"\r\n"
@@ -44,33 +41,59 @@ const char oim_getm_req_header[] =
 "User-Agent: Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1; Messenger (BETA) 8.0.0328)\r\n"
 "Host: rsi.hotmail.com\r\n"
 "Connection: Keep-Alive\r\n"
-"Cache-Control: no-cache\r\n\r\n";
-
-const char oim_getm_req[] = 
-"<?xmlversion=\"1.0\"encoding=\"utf-8\"?>"
-"<soap:Envelopexmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\">"
+"Cache-Control: no-cache\r\n\r\n";/*}}}*/
+const char oim_getm_req[] = /*{{{*/
+"<?xml version=\"1.0\" encoding=\"utf-8\"?>"
+"<soap:Envelope xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\""
+" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\""
+" xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\">"
 "<soap:Header>"
-"<PassportCookiexmlns=\"http://www.hotmail.msn.com/ws/2004/09/oim/rsi\">"
+"<PassportCookie xmlns=\"http://www.hotmail.msn.com/ws/2004/09/oim/rsi\">"
 "<t>%s</t>"
 "<p>%s</p>"
 "</PassportCookie>"
 "</soap:Header>"
 "<soap:Body>"
-"<GetMessagexmlns=\"http://www.hotmail.msn.com/ws/2004/09/oim/rsi\">"
+"<GetMessage xmlns=\"http://www.hotmail.msn.com/ws/2004/09/oim/rsi\">"
 "<messageId>%s</messageId>"
 "<alsoMarkAsRead>false</alsoMarkAsRead>"
 "</GetMessage>"
 "</soap:Body>"
 "</soap:Envelope>";
-
 /* }}} */
-
-OIMList *oimlist_getlist(const char* oticket)
+const char oim_delm_req_header[]=/*{{{*/
+"POST /rsi/rsi.asmx HTTP/1.1\r\n"
+"Accept: */*\r\n"
+"SOAPAction: \"http://www.hotmail.msn.com/ws/2004/09/oim/rsi/DeleteMessages\"\r\n"
+"Content-Type: text/xml; charset=utf-8\r\n"
+"Content-Length: %d\r\n"
+"User-Agent: Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1; Messenger (BETA) 8.0.0328)\r\n"
+"Host: rsi.hotmail.com\r\n"
+"Connection: Keep-Alive\r\n"
+"Cache-Control: no-cache\r\n\r\n";/*}}}*/
+const char oim_delm_req[] = /*{{{*/
+"<?xml version=\"1.0\" encoding=\"utf-8\"?>"
+"<soap:Envelope xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\">"
+  "<soap:Header>"
+    "<PassportCookie xmlns=\"http://www.hotmail.msn.com/ws/2004/09/oim/rsi\">"
+      "<t>%s</t>"
+      "<p>%s</p>"
+    "</PassportCookie>"
+  "</soap:Header>"
+  "<soap:Body>"
+    "<DeleteMessages xmlns=\"http://www.hotmail.msn.com/ws/2004/09/oim/rsi\">"
+      "<messageIds>"
+        "<messageId>%s</messageId>"
+      "</messageIds>"
+    "</DeleteMessages>"
+  "</soap:Body>"
+"</soap:Envelope>";/*}}}*/
+/* }}} */
+OIMList *oimlist_getlist(const char* oticket)/*{{{*/
 {
 	OL *ol = oimlist_new();
-	DMSG(stderr, "ticket str: %s\n", oticket);
 	char *tok;
-	/* get p and t */
+	/* get p and t {{{*/
 	tok = strstr(oticket, "&p=");
 	int inlen = (tok-oticket-2);
 	int outlen = inlen * 2;
@@ -95,9 +118,8 @@ OIMList *oimlist_getlist(const char* oticket)
 		xfree(ol->t);
 		oimlist_destroy(ol);
 		return NULL;
-	}
-
-	/* send soap request */
+	}/*}}}*/
+	/* send soap request {{{*/
 	SSLClient *client;	
 	client = sslclient_new("rsi.hotmail.com", 443);
 	DMSG(stderr, "connecting to OIM server ...\n");
@@ -118,6 +140,8 @@ OIMList *oimlist_getlist(const char* oticket)
 	sslclient_send(client, req, rlen);
 	xfree(hdr);
 	xfree(req);
+	/* }}} */
+	/* response from server {{{ */
 	FILE *fp;
 	sslclient_recv_header(client, &hdr);
 	HTTPHeader *header = http_parse_header(hdr);
@@ -158,15 +182,16 @@ OIMList *oimlist_getlist(const char* oticket)
 	xmlFreeDoc(doc);
 	xmlCleanupParser();
 	DMSG(stderr, "contact xml parsing done: %s\n", hlen?"good":"malformed");
+	/* }}} */
 	return ol;
-}
-OIMList *oimlist_new()
+}/*}}}*/
+OIMList *oimlist_new()/*{{{*/
 {
 	OL *ol = xmalloc(sizeof(OL));
 	memset(ol, 0, sizeof(OL));
 	return ol;
-}
-void oimlist_destroy(OIMList *olist)
+}/*}}}*/
+void oimlist_destroy(OIMList *olist)/*{{{*/
 {
 	OIM *o;
 	while(olist->list)
@@ -178,22 +203,72 @@ void oimlist_destroy(OIMList *olist)
 	xfree(olist->t);
 	xfree(olist->p);
 	xfree(olist);
-}
-void oimlist_append(OIMList *olist, OIM *oim)
+}/*}}}*/
+void oimlist_append(OIMList *olist, OIM *oim)/*{{{*/
 {
 	if(!oim) return;
 	oim->next = olist->list;
 	olist->list = oim;
 	olist->count++;
-}
-
-char *oim_fetch(OIM *o)
+}/*}}}*/
+char *oim_fetch(OL *ol, OIM *o)/*{{{*/
 {
 	if(o->text) return o->text;
 	/* TODO: fetch oim */
+	SSLClient *client;
+	client = sslclient_new("rsi.hotmail.com", 443);
+	sslclient_connect(client);
+	char *hdr, *req;
+	int hlen, rlen;
+	char buf[512];
+	xmlDocPtr doc;
+	xmlParserCtxtPtr ctxt;
+	hdr = xmalloc(sizeof(oim_getm_req_header)+32);
+	req = xmalloc(sizeof(oim_getm_req)+ strlen(ol->t) + strlen(ol->p) + strlen(o->id) + 64);
+	rlen = sprintf(req, oim_getm_req, ol->t, ol->p, o->id);
+	hlen = sprintf(hdr, oim_getm_req_header, rlen);
+	DMSG(stderr, "sending oim fetching request...\n");
+	hlen = sslclient_send(client, hdr, hlen);
+	rlen = sslclient_send(client, req, rlen);
+	xfree(hdr);
+	xfree(req);
+	DMSG(stderr, "parsing response header... \n");
+	sslclient_recv_header(client, &hdr);
+	HTTPHeader *header = http_parse_header(hdr);
+	hlen = header->content_length;
+	http_header_destroy(header);
+	DMSG(stderr, "parsing response body ... \n");
+	memset(buf, 0, sizeof(buf));
+	hlen -= (rlen = sslclient_recv(client, buf, sizeof(buf)-1));
+	ctxt = xmlCreatePushParserCtxt(NULL, NULL, buf, rlen, "oim.xml");
+	if(ctxt == NULL)
+	{
+		fprintf(stderr, "failed to create parser context");
+		return 0;
+	}
+	while(hlen > 0)
+	{
+		memset(buf, 0, sizeof(buf));
+		hlen -= (rlen = sslclient_recv(client, buf, sizeof(buf)-1));
+		xmlParseChunk(ctxt, buf, rlen, 0);
+	}
+	/* end of parsing */
+	xmlParseChunk(ctxt, buf, 0, 1);
+	sslclient_destroy(client, FALSE);
+	client = NULL;
+	doc = ctxt->myDoc;
+	if(ctxt->wellFormed)
+	{
+		DMSG(stderr, "parseing message...\n");
+		_oim_parse_message(o, doc);
+	}
+
+	xmlFreeParserCtxt(ctxt);
+	xmlFreeDoc(doc);
+	xmlCleanupParser();
 	return o->text;
-}
-OIM *oim_new(const char *email, const char *nick, const char *id)
+}/*}}}*/
+OIM *oim_new(const char *email, const char *nick, const char *id)/*{{{*/
 {
 	OIM *o = xmalloc(sizeof(*o));
 	o->from = strdup(email);
@@ -201,17 +276,16 @@ OIM *oim_new(const char *email, const char *nick, const char *id)
 	o->id = strdup(id);
 	o->text = NULL;
 	return o;
-}
-void oim_destroy(OIM *oim)
+}/*}}}*/
+void oim_destroy(OIM *oim)/*{{{*/
 {
 	xfree(oim->from);
 	xfree(oim->nick);
 	xfree(oim->id);
 	xfree(oim->text);
 	xfree(oim);
-}
-
-int _oim_parse_maildata(OL *ol, xmlDocPtr doc)
+}/*}}}*/
+int _oim_parse_maildata(OL *ol, xmlDocPtr doc)/*{{{*/
 {
 	xmlNodePtr node, md, m;
 	node = xmlDocGetRootElement(doc);
@@ -245,4 +319,89 @@ int _oim_parse_maildata(OL *ol, xmlDocPtr doc)
 		xmlFree(cNick);
 	}
 	return 0;
-}
+}/*}}}*/
+int _oim_parse_message(OIM *o, xmlDocPtr doc)/*{{{*/
+{
+	xmlNodePtr node = xmlDocGetRootElement(doc);
+	node = findNode(node->children, "GetMessageResult", 3);
+	char line[256];
+	int size;
+	if(!node) return 0;
+	char *content = (char*)xmlNodeGetContent(node);
+	const char *ptr = content;
+	int sid = 0;
+	while(ptr && *ptr)
+	{
+		size = 256;
+		ptr = get_one_line(ptr, line, &size);	
+		if(line[0] == '\0') /* header ends here */
+		{
+			break;
+		}
+		else if(sscanf(line, "X-OIM-Sequence-Num: %d", &sid) == 1)
+			o->sid = sid;
+	}
+	if(!ptr || !*ptr) fprintf(stderr, "OIM: no oim content!\n");
+	else
+	{
+		o->text = unbase64((unsigned char*)ptr, strlen(ptr));
+		DMSG(stderr, "got oim: %s\n", o->text);
+	}
+	xmlFree((xmlChar*)content);
+	return 0;
+}/*}}}*/
+void oim_delete(OL *ol, OIM *o)/*{{{*/
+{
+	char *hdr, *req;
+	int hlen, rlen;
+	char buf[512];
+	SSLClient *client;
+	hdr = xmalloc(sizeof(oim_delm_req_header) + 32);
+	req = xmalloc(sizeof(oim_delm_req)+strlen(ol->t)+strlen(ol->p)+strlen(o->id)+32);
+
+	rlen = sprintf(req, oim_delm_req, ol->t, ol->p, o->id);
+	hlen = sprintf(hdr, oim_delm_req_header, rlen);
+
+	client = sslclient_new("rsi.hotmail.com", 443);
+	sslclient_connect(client);
+	DMSG(stderr, "sending oim fetching request...\n");
+	hlen = sslclient_send(client, hdr, hlen);
+	rlen = sslclient_send(client, req, rlen);
+	xfree(hdr);
+	xfree(req);
+	DMSG(stderr, "parsing response header... \n");
+	sslclient_recv_header(client, &hdr);
+	HTTPHeader *header = http_parse_header(hdr);
+	hlen = header->content_length;
+	DMSG(stderr, "return code: %d\n", header->code);
+	if(header->code == 200) /* success */
+	{
+		DMSG(stderr, "OIM deleted\n");
+	}
+	http_header_destroy(header);
+	while(hlen > 0)
+	{
+		memset(buf, 0, sizeof(buf));
+		hlen -= (rlen = sslclient_recv(client, buf, sizeof(buf)-1));
+	}
+}/*}}}*/
+void oimlist_remove(OL *ol, OIM *o)/*{{{*/
+{
+	OIM *prev;
+	if(ol->list == o)
+	{
+		ol->list = o->next;
+	}
+	else
+	{
+		for(prev=ol->list;prev->next;prev=prev->next)
+		{
+			if(prev->next == o)
+			{
+				prev->next = o->next;
+				break;
+			}
+		}
+	}
+	oim_destroy(o);
+}/*}}}*/

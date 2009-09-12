@@ -44,6 +44,12 @@ const char *get_one_line(const char *argument, char *buffer, int *size)
 
 			break;
 		}
+		else if(*argument == '\n')
+		{
+			sz++;
+			argument++;
+			break;
+		}
 		*buffer++ = *argument;
 		sz++;
 	}

@@ -1,5 +1,5 @@
 CC=gcc
-SRC=SSLClient.c TCPClient.c Messenger.c Account.c ContactList.c msnlib.c SwitchBoard.c xmalloc.c CmdQueue.c NS.c
+SRC=SSLClient.c TCPClient.c Messenger.c Account.c ContactList.c msnlib.c SwitchBoard.c xmalloc.c CmdQueue.c NS.c OIM.c
 OBJ=$(SRC:.c=.o)
 LIBRARY=libfreemsn.so
 CFLAGS=-fPIC -Wall -g3 -DDEBUG -I/usr/include/libxml2

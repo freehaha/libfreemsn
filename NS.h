@@ -7,6 +7,7 @@
 #include "ContactList.h"
 #include "SwitchBoard.h"
 #include "CmdQueue.h"
+#include "OIM.h"
 
 struct _NS
 {
@@ -22,6 +23,7 @@ struct _NS
 	CmdQueue cmdq;
 	CmdQueue notifications;
 	pthread_t nsthread;
+	char *oticket;
 };
 #define NS_WAITFORTRID 1
 #define NS_CONNECTED 2

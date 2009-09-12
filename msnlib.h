@@ -49,6 +49,8 @@ typedef struct _contactlist ContactList;
 typedef ContactList CL;
 typedef enum _status Status;
 typedef enum _sbmsgtype SBMsgType;
+typedef struct _OIM_t OIM;
+typedef struct _OIMList_t OIMList;
 
 
 #include "TCPClient.h"
@@ -59,6 +61,8 @@ int _msn_send_payload(TCPClient *client, const char *command, const char *argume
 int _msn_read_payload(TCPClient *client, char **buf, int len);
 char *get_one_arg(char *argument, char *buffer, int size);
 const char *get_one_line(const char *argument, char *buffer, int *size);
+char *unbase64(unsigned char *input, int length);
+char *base64(const unsigned char *input, int length);
 
 
 #endif /* end of include guard: MSNLIB_NPEP82FY */

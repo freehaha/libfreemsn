@@ -15,11 +15,9 @@
 int _NS_load_ssoreq(char *buffer, char *username, char *password, char *policy);
 int _NS_initial_ADL(NS *ns);
 void _NS_do_ssoreq(NS *ns, char *policy, char* nonce);
-int _NS_get_ticket_secret(xmlDocPtr doc, char **ticket, char **secret, char **cticket);
+int _NS_get_tickets(xmlDocPtr doc, char **ticket, char **secret, char **cticket, char **oticket);
 int _NS_compute_usrkey(MSGUSRKEY *key, char *challenge, char *secret);
 char *_NS_compute_hash(char *key, int klen, char *magic, char *result);
-char *unbase64(unsigned char *input, int length);
-char *base64(const unsigned char *input, int length);
 int _NS_send_command(NS *ns, char *command, char *argument, bool appendID);
 int _NS_send_payload(NS *ns, char *command, char *argument, const char *payload, int len, bool appendID);
 int _NS_add_payload(NS *ns, char *command, char *argument, char *payload, int len, bool appendID);
@@ -397,21 +395,21 @@ int _NS_read_payload(NS *ns, char **buf, int len)/*{{{*/
 {
 	return _msn_read_payload(ns->tclient, buf, len);
 }/*}}}*/
-int _NS_get_ticket_secret(xmlDocPtr doc, char **ticket, char **secret, char **cticket)/*{{{*/
+int _NS_get_tickets(xmlDocPtr doc, char **ticket, char **secret, char **cticket, char **oticket)/*{{{*/
 {
 	xmlNodePtr node;
 
 	node = xmlDocGetRootElement(doc);
 	xmlNodePtr tokenCollection = findNode(node, "RequestSecurityTokenResponseCollection", 3);
+	xfree(*secret);
+	xfree(*ticket);
+	xfree(*cticket);
+	xfree(*oticket);
 	if(!tokenCollection)
 	{
 		fprintf(stderr, "cannot find token collection\n");
-		*ticket = NULL;
-		*secret = NULL;
 		return FALSE;
 	}
-	*secret = NULL;
-	*ticket = NULL;
 	bool found = 0;
 	for(node=tokenCollection->children;node;node=node->next)
 	{
@@ -420,6 +418,7 @@ int _NS_get_ticket_secret(xmlDocPtr doc, char **ticket, char **secret, char **ct
 		{
 			if(!*ticket && !xmlStrcmp(ref->properties->children->content, (const xmlChar *)"Compact1"))
 			{
+				DMSG(stderr, "found login ticket\n");
 				/* ticket */
 				*ticket = xmalloc(strlen((char*)ref->children->content));
 				strcpy(*ticket, (char*)ref->children->content);
@@ -440,20 +439,31 @@ int _NS_get_ticket_secret(xmlDocPtr doc, char **ticket, char **secret, char **ct
 				found++;
 				continue;
 			}
+			if(!*oticket && !xmlStrcmp(ref->properties->children->content, (const xmlChar *)"PPToken2"))
+			{
+				/* ticket */
+				DMSG(stderr, "found oim ticket\n");
+				*oticket = xmalloc(strlen((char*)ref->children->content));
+				strcpy(*oticket, (char*)ref->children->content);
+				found++;
+				continue;
+			}
 			if(!*cticket && !xmlStrcmp(ref->properties->children->content, (const xmlChar *)"Compact3"))
 			{
 				/* ticket */
+				DMSG(stderr, "found contact ticket\n");
 				*cticket = xmalloc(strlen((char*)ref->children->content));
 				strcpy(*cticket, (char*)ref->children->content);
 				found++;
+				continue;
 			}
 		}
 	}
-	if(found != 2)
+	if(found != 3)
 	{
 		fprintf(stderr, "failed to get ticket, secret, or cticket");
 	}
-	return found == 2;
+	return found == 3;
 }/*}}}*/
 int NS_ping(NS *ns)/*{{{*/
 {
@@ -564,9 +574,9 @@ void _NS_do_ssoreq(NS *ns, char *policy, char* nonce)/*{{{*/
 	len = ctxt->wellFormed;
 	xmlFreeParserCtxt(ctxt);
 	DMSG(stderr, "xml parsing done: %s\n", len?"good":"malformed");
-	char *ticket = NULL, *secret = NULL, *cticket = NULL;
+	char *ticket = NULL, *secret = NULL, *cticket = NULL, *oticket = NULL;
 	MSGUSRKEY key;
-	if(!_NS_get_ticket_secret(doc, &ticket, &secret, &cticket))
+	if(!_NS_get_tickets(doc, &ticket, &secret, &cticket, &oticket))
 	{
 		fprintf(stderr, "error getting ticket & secret, restarting... \n");
 		xfree(ticket);
@@ -583,6 +593,9 @@ void _NS_do_ssoreq(NS *ns, char *policy, char* nonce)/*{{{*/
 			cl_destroy(ns->contacts);
 		ns->contacts = cl_new(ns->account, cticket);
 	}
+	if(oticket)
+		ns->oticket = oticket;
+
 	_NS_compute_usrkey(&key, nonce, secret);
 	char *p = base64((unsigned char*)&key, sizeof(MSGUSRKEY));
 	char send[2048];
@@ -793,6 +806,16 @@ int _NS_disp_MSG(NS *ns, char *command)/*{{{*/
 			char buf[128];
 			sprintf(buf, "MFN %s", ns->account->nick);
 			_NS_send_command(ns, "PRP", buf, TRUE);
+			OL *o = oimlist_getlist(ns->oticket);
+#ifdef DEBUG
+			OIM *im;
+			fprintf(stderr, "offline messages: \n");
+			for(im=o->list;im;im=im->next)
+			{
+				fprintf(stderr, "from: %s\tnick: %s\tid: %s\n", im->from, im->nick, im->id);
+			}
+#endif
+			oimlist_destroy(o);
 			ns->flag |= NS_CONNECTED;
 			ns->nextping = time(NULL)+50;
 		}
@@ -963,6 +986,7 @@ int _NS_disp_ILN(NS *ns, char *command) /* initial contract {{{*/
 		c->nick = strdup(nick);
 		c->status = strtoStatus(status);
 		DMSG(stderr, "ILN: %s: %s is now Online\n", c->nick, email);
+		DMSG(stderr, "%s\n", command);
 	}
 	return 1;
 }/*}}}*/

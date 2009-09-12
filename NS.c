@@ -5,7 +5,6 @@
 #include <string.h>
 #include <openssl/sha.h>
 #include <openssl/hmac.h>
-#include <openssl/evp.h>
 #include <openssl/bio.h>
 #include <openssl/buffer.h>
 #include <openssl/des.h>
@@ -1034,22 +1033,6 @@ int _NS_disp_OUT(NS *ns, char *command) /* kicked {{{ */
 	return 1;
 }/* }}} */
 
-/* base64 conversions {{{ */
-char *unbase64(unsigned char *input, int length)
-{
-	char *buffer = xmalloc(length);
-	memset(buffer, 0, length);
-	EVP_DecodeBlock((unsigned char*)buffer, input, length);
-	return buffer;
-}
-char *base64(const unsigned char *input, int length)
-{
-	char *buffer = xmalloc(length*2);
-	memset(buffer, 0, length*2);
-	EVP_EncodeBlock((unsigned char*)buffer, input, length);
-	return buffer;
-}
-/* }}} */
 inline unsigned int endian_swap(unsigned int x)/*{{{*/
 {
 	x = (x>>24) |

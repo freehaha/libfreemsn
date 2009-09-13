@@ -211,6 +211,23 @@ void oimlist_append(OIMList *olist, OIM *oim)/*{{{*/
 	olist->list = oim;
 	olist->count++;
 }/*}}}*/
+void oimlist_save(OL *ol, const char *filename)/*{{{*/
+{
+	FILE *fp;
+	fp = fopen(filename, "a");
+	if(!fp)
+	{
+		fprintf(stderr, "error opening file: %s\n", filename);
+		return;
+	}
+	OIM *o;
+	for(o=ol->list;o;o=o->next)
+	{
+		if(!o->text) continue;
+		fprintf(fp, "%s(%s): %s\n", o->nick, o->from, o->text);
+	}
+	fclose(fp);
+}/*}}}*/
 char *oim_fetch(OL *ol, OIM *o)/*{{{*/
 {
 	if(o->text) return o->text;

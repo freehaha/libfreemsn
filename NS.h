@@ -23,6 +23,7 @@ struct _NS
 	CmdQueue cmdq;
 	CmdQueue notifications;
 	pthread_t nsthread;
+	OIMList *olist;
 	char *oticket;
 };
 #define NS_WAITFORTRID 1

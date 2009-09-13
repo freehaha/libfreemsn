@@ -3,6 +3,7 @@
 
 #include "msnlib.h"
 #include "SSLClient.h"
+#include "Account.h"
 
 struct _OIMList_t
 {
@@ -27,6 +28,7 @@ OIMList *oimlist_new();
 void oimlist_destroy(OIMList *olist);
 void oimlist_append(OIMList *olist, OIM *oim);
 void oimlist_remove(OL *ol, OIM *o);
+void oimlist_save(OL *ol, const char *filename);
 
 char *oim_fetch(OL *ol, OIM *o);
 void oim_delete(OL *ol, OIM *o);

@@ -805,18 +805,7 @@ int _NS_disp_MSG(NS *ns, char *command)/*{{{*/
 			char buf[128];
 			sprintf(buf, "MFN %s", ns->account->nick);
 			_NS_send_command(ns, "PRP", buf, TRUE);
-			OL *o = oimlist_getlist(ns->oticket);
-#ifdef DEBUG
-			OIM *im;
-			fprintf(stderr, "offline messages: \n");
-			for(im=o->list;im;im=im->next)
-			{
-				oim_fetch(o, im);
-				oim_delete(o, im);
-				fprintf(stderr, "from: %s\tnick: %s\tid: %s\n", im->from, im->nick, im->id);
-			}
-#endif
-			oimlist_destroy(o);
+			ns->olist = oimlist_getlist(ns->oticket);
 			ns->flag |= NS_CONNECTED;
 			ns->nextping = time(NULL)+50;
 		}

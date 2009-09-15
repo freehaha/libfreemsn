@@ -32,10 +32,10 @@ Account *account_new(const char *nick, const char *name, const char *pwd)/*{{{*/
 	ac->pwd = strdup(pwd);
 	ac->nick = strdup(nick);
 	ac->next = NULL;
+	ac->notifications = cmdqueue_new();
 	ac->ns = NS_new(ac);
 	ac->nscbtable = xmalloc(sizeof(AC_CALLBACK)*(uint)NS_NOTIFY_MAX);
 	ac->sbcbtable = xmalloc(sizeof(AC_CALLBACK)*(uint)SB_NOTIFY_MAX);
-	ac->notifications = ac->ns->notifications;
 	memset(ac->nscbtable, 0, sizeof(AC_CALLBACK)*(uint)NS_NOTIFY_MAX);
 	memset(ac->sbcbtable, 0, sizeof(AC_CALLBACK)*(uint)SB_NOTIFY_MAX);
 #ifdef DEBUG
@@ -226,19 +226,18 @@ bool account_connect(Account *account)/*{{{*/
 	ret = account_fork(account);
 	return ret;
 }/*}}}*/
-
-int account_reqsb_cb(Account *ac, int type, void *vSB, void *data, void *init)
+/* SB requesting functionalities */
+int account_reqsb_cb(Account *ac, int type, void *vSB, void *data, void *init)/*{{{*/
 {
 	*(SB**)init = vSB;
 	DMSG(stderr, "requested SB arrived.\n");
 	return 0;
-}
-
-void account_request_SB(Account *ac, SB **sb)
+}/*}}}*/
+void account_request_SB(Account *ac, SB **sb)/*{{{*/
 {
 	uint id = account_addcallback(ac->sbcbtable, SB_NOTIFY_REQSB, account_reqsb_cb, (void*)sb, ACCB_ONCE);
 	if(!NS_request_SB(ac->ns))
 	{
 		account_rmcallback(ac->sbcbtable, SB_NOTIFY_REQSB, id);
 	}
-}
+}/*}}}*/

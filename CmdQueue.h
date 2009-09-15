@@ -5,12 +5,12 @@
 #include "msnlib.h"
 
 /* enum, structs {{{*/
-enum _cmdtype_t
+enum _cmdtype_e
 {
 	CMD_NS, CMD_SB, CMD_NS_NOTIFY, CMD_SB_NOTIFY, CMD_MAX, _CMD_MAX=INT_MAX
 };
 
-enum _msgtype_t
+enum _msgtype_e
 {
 	MSG_MESSAGE, MSG_PAYLOAD, MSG_MAX, _MSG_MAX=INT_MAX
 };
@@ -22,7 +22,7 @@ enum _sbnotify_e
 {
 	SB_NOTIFY_SHUTDOWN, SB_NOTIFY_MSG, SB_NOTIFY_REQSB, SB_NOTIFY_NEWSB, SB_NOTIFY_NAK, SB_NOTIFY_MAX, _SNTY_MAX=INT_MAX
 };
-struct _msgdata_t
+struct _nsmsgdata_t
 {
 	MsgType type;
 	bool appendID;

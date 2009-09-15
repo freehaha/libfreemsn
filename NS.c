@@ -159,7 +159,7 @@ NS *NS_new(Account *account)/*{{{*/
 	memset(ns, 0, sizeof(NS));
 	ns->account = account;
 	ns->cmdq = cmdqueue_new();
-	ns->notifications = cmdqueue_new();
+	ns->notifications = account->notifications;
 	return ns;
 }/*}}}*/
 void NS_destroy(NS *ns)/*{{{*/
@@ -185,7 +185,6 @@ void NS_destroy(NS *ns)/*{{{*/
 		ns->sblist = sb;
 	}
 	if(ns->cmdq) cmdqueue_destroy(ns->cmdq);
-	/* if(ns->notifications) cmdqueue_destroy(ns->notifications); */ //Account will free it
 	xfree(ns);
 	ERR_free_strings();
 }/*}}}*/
@@ -254,7 +253,7 @@ bool NS_dispatch_commands(NS *ns)/*{{{*/
 		{
 			case CMD_NS:/*{{{*/
 				{
-					MsgData *data = c->data;
+					NSMsgData *data = c->data;
 					switch(data->type)
 					{
 						case MSG_MESSAGE:
@@ -409,7 +408,7 @@ int _NS_dispatch(NS *ns, char *line)/*{{{*/
 }/*}}}*/
 void NS_msg_destroy(void *data)/*{{{*/
 {
-	MsgData *msg = data;
+	NSMsgData *msg = data;
 	if(!data)
 	{
 		fprintf(stderr, "NULL data passed to _NS_msg_destroy\n");
@@ -429,7 +428,7 @@ int _NS_add_command(NS *ns, char *command, char *argument, bool appendID)/*{{{*/
 	}
 	Command *c;
 	DMSG(stderr, "add NS command: %s...\n", command);
-	MsgData *data = xmalloc(sizeof(MsgData));
+	NSMsgData *data = xmalloc(sizeof(NSMsgData));
 	data->type = MSG_MESSAGE;
 	data->appendID = appendID;
 	data->cmd = strdup(command);
@@ -462,7 +461,7 @@ int _NS_add_payload(NS *ns, char *command, char *argument, char *payload, int le
 {
 	/* NOTE: payload WILL be freed after pop from the queue */
 	Command *c;
-	MsgData *data = xmalloc(sizeof(MsgData));
+	NSMsgData *data = xmalloc(sizeof(NSMsgData));
 	data->type = MSG_PAYLOAD;
 	data->appendID = appendID;
 	data->cmd = strdup(command);

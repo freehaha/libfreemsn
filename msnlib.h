@@ -33,7 +33,7 @@ typedef struct _sslclient SSLClient;
 typedef struct _sbbuddy SBBuddy;
 typedef struct _account Account;
 typedef struct _cmd_t Command;
-typedef struct _msgdata_t MsgData; /* message to NS */
+typedef struct _nsmsgdata_t NSMsgData; /* message to NS */
 typedef enum _nsnotify_e NSNotify; /* notify types */
 typedef enum _sbnotify_e SBNotify; /* notify types */
 typedef struct _nsnotify_t NSNotifyData; /* notify to NS */
@@ -41,8 +41,8 @@ typedef struct _sbnotify_t SBNotifyData; /* notify to SB */
 typedef struct _sbmsgnotify SBNotifyMsg; /* msg notify from SB */
 typedef struct _sbmsgdata_t SBMsgData; /* message to SB */
 typedef struct _cmdqueue_t *CmdQueue;
-typedef enum _cmdtype_t CmdType; /* command type */
-typedef enum _msgtype_t MsgType; /* message type */
+typedef enum _cmdtype_e CmdType; /* command type */
+typedef enum _msgtype_e MsgType; /* message type */
 typedef void (*CmdDestroyFunc)(void *);
 typedef struct _contact Contact;
 typedef struct _contactlist ContactList;

@@ -11,7 +11,7 @@ all: $(TESTS) $(LIBRARY)
 $(LIBRARY): $(OBJ)
 	$(CC) -shared -Wl,-soname,libfreemsn.so -o $(LIBRARY) $(OBJ) $(CFLAGS) $(LFLAGS)
 
-account.test: $(LIBRARY)
+account.test: $(LIBRARY) test.c
 	$(CC) -o account.test -Wl,--rpath=./ -L./ -lfreemsn test.c $(CFLAGS) $(LFLAGS)
 
 .SUFFIXES: .c .cpp

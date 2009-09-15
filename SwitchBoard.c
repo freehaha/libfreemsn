@@ -10,11 +10,10 @@ bool _SB_remove_buddy(SB *sb, const char *email);
 int _SB_push_command(SB *sb, Command *c);
 SBMsgType StrToSBMsgType(const char *type);
 SBNotifyMsg *_SB_make_notify_msg(SB *sb, const char *email, const char *nick, const char *message, int length);
-const char msgheader[] = "MIME-Version: 1.0\r\n"
+const char textmessage_header[] = "MIME-Version: 1.0\r\n"/*{{{*/
 		"Content-Type: text/plain; charset=UTF-8\r\n"
 		"X-MMS-IM-Format: FN=Arial; EF=I; CO=0; CS=0; PF=22\r\n"
-		"\r\n";
-
+		"\r\n";/*}}}*/
 SBBuddy *sbbuddy_new(const char *nick, const char *email, int cid)/*{{{*/
 {
 	SBBuddy *bd = xmalloc(sizeof(SBBuddy));
@@ -116,9 +115,9 @@ int SB_sendmsg(SB *sb, const char *msg)/*{{{*/
 		fprintf(stderr, "nobody except you is connecting to the SB\n");
 		return TRUE;
 	}
-	char *msgbuf = xmalloc(strlen(msg)+sizeof(msgheader));
+	char *msgbuf = xmalloc(strlen(msg)+sizeof(textmessage_header));
 	int len;
-	len = sprintf(msgbuf, "%s%s", msgheader, msg);
+	len = sprintf(msgbuf, "%s%s", textmessage_header, msg);
 	len = _SB_send_payload(sb, "MSG", "N", msgbuf, len, TRUE);
 	xfree(msgbuf);
 	return len;

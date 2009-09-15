@@ -7,6 +7,8 @@
 
 #define CONXML "contactreq.xml"
 #define CONXML_FULL "contactreq_full.xml"
+#define ABXML "abreq.xml"
+#define ABXML_FULL "abreq_full.xml"
 #define DEFAULTSERVER "contacts.msn.com"
 
 enum _status
@@ -32,6 +34,7 @@ struct _contactlist
 	char *ticket;
 	Contact *list;
 	char *lastchange;
+	char *ablastchange;
 	xmlHashTablePtr table;
 	xmlHashTablePtr emailtable;
 	unsigned int count;

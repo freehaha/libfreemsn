@@ -50,6 +50,107 @@ int _NS_disp_FLN(NS *ns, char* command); /* buddy goes offline */
 int _NS_disp_RNG(NS *ns, char* command); /* ringring */
 int _NS_disp_PRP(NS *ns, char* command); /* PRP */
 int _NS_disp_OUT(NS *ns, char* command); /* OUT */
+
+/* requests */
+const char sso_request[] = /*{{{*/
+"<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+"<Envelope xmlns=\"http://schemas.xmlsoap.org/soap/envelope/\""
+"          xmlns:wsse=\"http://schemas.xmlsoap.org/ws/2003/06/secext\""
+"          xmlns:saml=\"urn:oasis:names:tc:SAML:1.0:assertion\""
+"          xmlns:wsp=\"http://schemas.xmlsoap.org/ws/2002/12/policy\""
+"          xmlns:wsu=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd\""
+"          xmlns:wsa=\"http://schemas.xmlsoap.org/ws/2004/03/addressing\""
+"          xmlns:wssc=\"http://schemas.xmlsoap.org/ws/2004/04/sc\""
+"          xmlns:wst=\"http://schemas.xmlsoap.org/ws/2004/04/trust\">"
+"<Header>"
+"  <ps:AuthInfo xmlns:ps=\"http://schemas.microsoft.com/Passport/SoapServices/PPCRL\" Id=\"PPAuthInfo\">"
+"    <ps:HostingApp>{7108E71A-9926-4FCB-BCC9-9A9D3F32E423}</ps:HostingApp>"
+"    <ps:BinaryVersion>4</ps:BinaryVersion>"
+"    <ps:UIVersion>1</ps:UIVersion>"
+"    <ps:Cookies></ps:Cookies>"
+"    <ps:RequestParams>AQAAAAIAAABsYwQAAAAxMDMz</ps:RequestParams>"
+"  </ps:AuthInfo>"
+"  <wsse:Security>"
+"    <wsse:UsernameToken Id=\"user\">"
+"    <wsse:Username>%s</wsse:Username>"
+"    <wsse:Password>%s</wsse:Password>"
+"    </wsse:UsernameToken>"
+"  </wsse:Security>"
+"</Header>"
+"<Body>"
+"  <ps:RequestMultipleSecurityTokens xmlns:ps=\"http://schemas.microsoft.com/Passport/SoapServices/PPCRL\" Id=\"RSTS\">"
+"    <wst:RequestSecurityToken Id=\"RST0\">"
+"      <wst:RequestType>http://schemas.xmlsoap.org/ws/2004/04/security/trust/Issue</wst:RequestType>"
+"      <wsp:AppliesTo>"
+"        <wsa:EndpointReference>"
+"          <wsa:Address>http://Passport.NET/tb</wsa:Address>"
+"        </wsa:EndpointReference>"
+"      </wsp:AppliesTo>"
+"    </wst:RequestSecurityToken>"
+"    <wst:RequestSecurityToken Id=\"RST1\">"
+"      <wst:RequestType>http://schemas.xmlsoap.org/ws/2004/04/security/trust/Issue</wst:RequestType>"
+"      <wsp:AppliesTo>"
+"        <wsa:EndpointReference>"
+"          <wsa:Address>messengerclear.live.com</wsa:Address>"
+"        </wsa:EndpointReference>"
+"      </wsp:AppliesTo>"
+"    <wsse:PolicyReference URI=\"%s\"></wsse:PolicyReference>"
+"    </wst:RequestSecurityToken>"
+"    <wst:RequestSecurityToken Id=\"RST2\">"
+"      <wst:RequestType>http://schemas.xmlsoap.org/ws/2004/04/security/trust/Issue</wst:RequestType>"
+"      <wsp:AppliesTo>"
+"        <wsa:EndpointReference>"
+"          <wsa:Address>messenger.msn.com</wsa:Address>"
+"        </wsa:EndpointReference>"
+"      </wsp:AppliesTo>"
+"      <wsse:PolicyReference URI=\"?id=507\"></wsse:PolicyReference>"
+"    </wst:RequestSecurityToken>"
+"    <wst:RequestSecurityToken Id=\"RST3\">"
+"      <wst:RequestType>http://schemas.xmlsoap.org/ws/2004/04/security/trust/Issue</wst:RequestType>"
+"      <wsp:AppliesTo>"
+"        <wsa:EndpointReference>"
+"          <wsa:Address>contacts.msn.com</wsa:Address>"
+"        </wsa:EndpointReference>"
+"      </wsp:AppliesTo>"
+"      <wsse:PolicyReference URI=\"MBI\"></wsse:PolicyReference>"
+"    </wst:RequestSecurityToken>"
+"    <wst:RequestSecurityToken Id=\"RST4\">"
+"      <wst:RequestType>http://schemas.xmlsoap.org/ws/2004/04/security/trust/Issue</wst:RequestType>"
+"      <wsp:AppliesTo>"
+"        <wsa:EndpointReference>"
+"          <wsa:Address>messengersecure.live.com</wsa:Address>"
+"        </wsa:EndpointReference>"
+"      </wsp:AppliesTo>"
+"      <wsse:PolicyReference URI=\"MBI_SSL\"></wsse:PolicyReference>"
+"    </wst:RequestSecurityToken>"
+"    <wst:RequestSecurityToken Id=\"RST5\">"
+"      <wst:RequestType>http://schemas.xmlsoap.org/ws/2004/04/security/trust/Issue</wst:RequestType>"
+"      <wsp:AppliesTo>"
+"        <wsa:EndpointReference>"
+"          <wsa:Address>spaces.live.com</wsa:Address>"
+"        </wsa:EndpointReference>"
+"      </wsp:AppliesTo>"
+"      <wsse:PolicyReference URI=\"MBI\"></wsse:PolicyReference>"
+"    </wst:RequestSecurityToken>"
+"    <wst:RequestSecurityToken Id=\"RST6\">"
+"      <wst:RequestType>http://schemas.xmlsoap.org/ws/2004/04/security/trust/Issue</wst:RequestType>"
+"      <wsp:AppliesTo>"
+"        <wsa:EndpointReference>"
+"          <wsa:Address>storage.msn.com</wsa:Address>"
+"        </wsa:EndpointReference>"
+"      </wsp:AppliesTo>"
+"      <wsse:PolicyReference URI=\"MBI\"></wsse:PolicyReference>"
+"    </wst:RequestSecurityToken>"
+"  </ps:RequestMultipleSecurityTokens>"
+"</Body>"
+"</Envelope>";/*}}}*/
+const char sso_request_header[] = /*{{{*/
+	"POST /RST.srf HTTP/1.1\r\n"
+	"Host: login.live.com\r\n"
+	"User-Agent: MSMSGS\r\n"
+	"Accept: */*\r\n"
+	"Content-Type: application/soap+xml; charset=utf-8\r\n"
+	"Content-Length: %d\r\n\r\n";/*}}}*/
 /* }}} */
 
 NS *NS_new(Account *account)/*{{{*/
@@ -472,55 +573,12 @@ int NS_ping(NS *ns)/*{{{*/
 
 int _NS_load_ssoreq(char *buffer, char *username, char *password, char *policy)/*{{{*/
 {
-	FILE *fp;
-	char *line = NULL;
-	char *pbuffer = buffer;
-	size_t size;
-	int sz = 0, length;
-	fp = fopen("ssoreq.xml", "r");
-	if(!fp)
-	{
-		perror("error opening file...");
-		buffer[0] = '\0';
-		return 0;
-	}
-	while((length = getline(&line, &size, fp)) > 0)
-	{
-		if(!line) break;
-		if(!strncmp(line, "###USER", 7))
-		{
-			length = sprintf(pbuffer, "<wsse:Username>%s</wsse:Username>\n", username);
-			pbuffer += length;
-			sz += length;
-		}
-		else if (!strncmp(line, "###PWD", 6))
-		{
-			length = sprintf(pbuffer, "<wsse:Password>%s</wsse:Password>\n", password);
-			pbuffer += length;
-			sz += length;
-		}
-		else if (!strncmp(line, "###POLICY", 9))
-		{
-
-			length = sprintf(pbuffer, "<wsse:PolicyReference URI=\"%s\"></wsse:PolicyReference>", policy);
-			pbuffer += length;
-			sz += length;
-		}
-		else
-		{
-			strncat(pbuffer, line, length);
-			pbuffer += length;
-			sz += length;
-		}
-	}
-	fclose(fp);
-	xfree(line);
-	return sz;
+	return sprintf(buffer, sso_request, username, password, policy);
 }/*}}}*/
 void _NS_do_ssoreq(NS *ns, char *policy, char* nonce)/*{{{*/
 {
-	char buf[1024*5] = {0};
-	char header[512];
+	char buf[sizeof(sso_request)+256] = {0};
+	char header[sizeof(sso_request_header)+32];
 	int len, hlen;
 	ns->sclient = sslclient_new("login.live.com", 443);
 	if(!sslclient_connect(ns->sclient))
@@ -530,20 +588,11 @@ void _NS_do_ssoreq(NS *ns, char *policy, char* nonce)/*{{{*/
 	}
 
 	len = _NS_load_ssoreq(buf, ns->account->username, ns->account->pwd, policy);
-	hlen = sprintf(header, "POST /RST.srf HTTP/1.1\r\n"
-			"Host: login.live.com\r\n"
-			"User-Agent: MSMSGS\r\n"
-			"Accept: */*\r\n"
-			"Content-Type: application/soap+xml; charset=utf-8\r\n"
-			"Content-Length: %d\r\n\r\n", len);
+	hlen = sprintf(header, sso_request_header, len);
 	sslclient_send(ns->sclient, header, hlen);
 	sslclient_send(ns->sclient, buf, len);
 	memset(buf, 0, sizeof(buf));
 	sslclient_recv(ns->sclient, buf, sizeof(buf)-1); /* header */
-#ifdef DEBUG
-	/* header */
-	fprintf(stderr, buf);
-#endif
 	memset(buf, 0, sizeof(buf));
 	/* parse the resulting xml */
 	xmlDocPtr doc;
@@ -592,7 +641,8 @@ void _NS_do_ssoreq(NS *ns, char *policy, char* nonce)/*{{{*/
 			cl_destroy(ns->contacts);
 		ns->contacts = cl_new(ns->account, cticket);
 	}
-	if(oticket)
+
+	if(oticket) /* don't free it */
 		ns->oticket = oticket;
 
 	_NS_compute_usrkey(&key, nonce, secret);

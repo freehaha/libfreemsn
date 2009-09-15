@@ -15,7 +15,7 @@
 		<ABFindAll xmlns="http://www.msn.com/webservices/AddressBook">
 			<abId>00000000-0000-0000-0000-000000000000</abId>
 			<abView>Full</abView>
-			<deltasOnly>true</deltasOnly>
+			<deltasOnly>false</deltasOnly>
 			<lastChange>0001-01-01T00:00:00.0000000-08:00</lastChange>
 		</ABFindAll>
 	</soap:Body>

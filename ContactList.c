@@ -20,9 +20,8 @@ const char *ab_soapreqheader = "POST /abservice/abservice.asmx HTTP/1.1\r\n"
 "Host: contacts.msn.com\r\n"
 "Content-Length: ";
 
-int _cl_load_soapreq_ms(CL *cl, const char *filename, char **req);
+int _cl_load_soapreq_ms(CL *cl, const char *filename, const char *lastchange, char **req);
 int _cl_do_soapreq_ms(CL *cl);
-int _cl_load_soapreq_ab(CL *cl, const char *filename, char **req);
 int _cl_do_soapreq_ab(CL *cl);
 int _cl_parse_contacts(CL *cl, xmlDocPtr doc);
 void _cl_contact_hashdumper(void *payload, void *data, xmlChar *domain);
@@ -43,17 +42,17 @@ ContactList *cl_new(Account *ac, const char *ticket)/*{{{*/
 
 	return cl;
 }/*}}}*/
-void _cl_free_table(void *payload, xmlChar *name)
+void _cl_free_table(void *payload, xmlChar *name)/*{{{*/
 {
-}
-void _cl_free_emailtable(void *payload, xmlChar *name)
+}/*}}}*/
+void _cl_free_emailtable(void *payload, xmlChar *name)/*{{{*/
 {
-}
+}/*}}}*/
 void cl_destroy(CL *cl)/*{{{*/
 {
 	char filename[64];
 	MD5((unsigned char*)cl->account->username, strlen(cl->account->username), (unsigned char*)filename);
-	sprintf(filename, "%x%x.xml", (unsigned char)filename[0], (unsigned char)filename[3]);
+	sprintf(filename, "%x%x.xml", (unsigned char)filename[0], (unsigned char)filename[1]);
 	cl_save(cl, filename);
 	xmlHashFree(cl->table, _cl_free_table);
 	xmlHashFree(cl->emailtable, _cl_free_emailtable);
@@ -76,9 +75,11 @@ void cl_destroy(CL *cl)/*{{{*/
 }/*}}}*/
 int cl_retrive(CL *cl)/*{{{*/
 {
-	return _cl_do_soapreq_ms(cl);
+	int ret;
+	ret = _cl_do_soapreq_ms(cl);
+	//_cl_do_soapreq_ab(cl);
+	return ret;
 }/*}}}*/
-
 int cl_append_contact(CL *cl, Contact *c, const char *name, const char *domain)/*{{{*/
 {
 	Contact *list;
@@ -282,7 +283,76 @@ cleanup:
 }/*}}}*/
 int _cl_do_soapreq_ab(CL *cl)/*{{{*/
 {
-//cleanup:
+	TCPClient *client;
+	client = tcpclient_new("contacts.msn.com", 80);
+	char *req = NULL;
+	char *header;
+	char buf[512];
+	int ret, len;
+	ret = _cl_load_soapreq_ms(cl, ABXML, cl->ablastchange, &req);
+	if(ret)
+	{
+		tcpclient_connect(client);
+		header = xmalloc(strlen(ab_soapreqheader) + 32);
+		DMSG(stderr, "sending ab request\n");
+		len = sprintf(header, "%s%d\r\n\r\n", ab_soapreqheader, ret);
+		if(tcpclient_send(client, header, len) <= 0) goto cleanup;
+		if(tcpclient_send(client, req, ret) <= 0) goto cleanup;
+
+		char *ptr = NULL;
+		len = tcpclient_recv_header(client, &ptr); /* header */
+		if(ptr)
+		{
+			DMSG(stderr, "AB response header:\n%s", ptr);
+			HTTPHeader *header = http_parse_header(ptr);
+			len = header->content_length;
+			DMSG(stderr, "Length: %d\n", len);
+			http_header_destroy(header);
+			memset(buf, 0, sizeof(buf));
+			xmlDocPtr doc;
+			xmlParserCtxtPtr ctxt;
+			FILE *fp = fopen("addressbook.xml", "w");
+			fprintf(fp, buf);
+			len -= (ret = tcpclient_recv(client, buf, sizeof(buf)-1));
+			ctxt = xmlCreatePushParserCtxt(NULL, NULL, buf, ret, "addressbook.xml");
+			fprintf(fp, buf);
+			if(ctxt == NULL)
+			{
+				fprintf(stderr, "failed to create parser context");
+				return 0;
+			}
+
+			while(len > 0)
+			{
+				memset(buf, 0, sizeof(buf));
+				len -= (ret=tcpclient_recv(client, buf, sizeof(buf)-1));
+				fprintf(fp, buf);
+				xmlParseChunk(ctxt, buf, ret, 0);
+			}
+			fclose(fp);
+			xmlParseChunk(ctxt, buf, 0, 1);
+			tcpclient_destroy(client);
+			client = NULL;
+			doc = ctxt->myDoc;
+			len = ctxt->wellFormed;
+			xmlFreeParserCtxt(ctxt);
+			//count += _cl_parse_contacts(cl, doc);
+			xmlFreeDoc(doc);
+			xmlCleanupParser();
+			DMSG(stderr, "addressbook xml parsing done: %s\n", len?"good":"malformed");
+			xfree(ptr);
+		}
+		else
+		{
+			DMSG(stderr, "ab: no header found\n\r");
+		}
+	}
+	else
+	{
+		fprintf(stderr, "failed to load abreq\n");
+	}
+cleanup:
+	xfree(header);
 	return 0;
 }/*}}}*/
 int cl_load_contacts(CL *cl, const char* file)/*{{{*/
@@ -362,6 +432,8 @@ void cl_save(CL *cl, const char *filename)/*{{{*/
 	fprintf(fp, "</contacts>");
 	if(cl->lastchange)
 		fprintf(fp,"<lastchange>%s</lastchange>", cl->lastchange);
+	if(cl->ablastchange)
+		fprintf(fp,"<ablastchange>%s</ablastchange>", cl->ablastchange);
 	fprintf(fp, "</contactinfo>");
 	fflush(fp);
 	fclose(fp);
@@ -382,21 +454,21 @@ int _cl_do_soapreq_ms(CL *cl)/*{{{*/
 	/* connected */
 	char contactfile[64];
 	MD5((unsigned char*)cl->account->username, strlen(cl->account->username), (unsigned char*)contactfile);
-	sprintf(contactfile, "%x%x.xml", (unsigned char)contactfile[0], (unsigned char)contactfile[3]);
+	sprintf(contactfile, "%x%x.xml", (unsigned char)contactfile[0], (unsigned char)contactfile[1]);
 	FILE *fp;
 	if((fp=fopen(contactfile, "r")))
 	{
 		DMSG(stderr, "loading cached contacts...\n");
 		if((count = cl_load_contacts(cl, contactfile)))
-			ret = _cl_load_soapreq_ms(cl, CONXML, &req);
+			ret = _cl_load_soapreq_ms(cl, CONXML, cl->lastchange, &req);
 		else
-			ret = _cl_load_soapreq_ms(cl, CONXML_FULL, &req);
+			ret = _cl_load_soapreq_ms(cl, CONXML_FULL, cl->lastchange, &req);
 		DMSG(stderr, "%d contacts loaded from cache...\n", count);
 
 		fclose(fp);
 	}
 	else
-		ret = _cl_load_soapreq_ms(cl, CONXML_FULL, &req);
+		ret = _cl_load_soapreq_ms(cl, CONXML_FULL, cl->lastchange, &req);
 	if(ret)
 	{
 		DMSG(stderr, "sending cl request\n");
@@ -465,7 +537,7 @@ cleanup:
 	xfree(header);
 	return count;
 }/*}}}*/
-int _cl_load_soapreq_ms(CL *cl, const char *filename, char **req)/*{{{*/
+int _cl_load_soapreq_ms(CL *cl, const char *filename, const char *lastchange, char **req)/*{{{*/
 {
 	FILE *fp;
 	char *buf;
@@ -578,7 +650,6 @@ void _cl_contact_sorter(void *payload, void *data, xmlChar *domain)
 		cl->list = c;
 	}
 }/*}}}*/
-
 void _cl_sort_contacts(CL *cl)/*{{{*/
 {
 	cl->list = NULL;
@@ -677,7 +748,6 @@ char *cl_generate_ADL_list(CL *cl, int *count, int *sz)/*{{{*/
 	*count = cnt;
 	return list;
 }/*}}}*/
-
 Contact *contact_new(const char *nick)/*{{{*/
 {
 	Contact *c;
@@ -688,9 +758,8 @@ Contact *contact_new(const char *nick)/*{{{*/
 	c->inlist = 0;
 	c->status = NA;
 	if(nick && *nick)
-	{
 		c->nick = strdup(nick);
-	}
+
 	return c;
 }/*}}}*/
 void contact_destroy(Contact *c)/*{{{*/

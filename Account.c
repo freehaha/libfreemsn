@@ -209,10 +209,6 @@ void account_destroy(Account *ac)/*{{{*/
 	xfree(ac->nick);
 	xfree(ac);
 }/*}}}*/
-void account_update(Account *ac)/*{{{*/
-{
-
-}/*}}}*/
 bool account_fork(Account *ac)/*{{{*/
 {
 	return (0 == pthread_create(&ac->thread, NULL, _account_loop, ac));

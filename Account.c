@@ -33,11 +33,11 @@ Account *account_new(const char *nick, const char *name, const char *pwd)/*{{{*/
 	ac->nick = strdup(nick);
 	ac->next = NULL;
 	ac->ns = NS_new(ac);
-	ac->nscbtable = xmalloc(sizeof(AC_CALLBACK)*(uint)NOTIFY_MAX);
-	ac->sbcbtable = xmalloc(sizeof(AC_CALLBACK)*(uint)NOTIFY_MAX);
+	ac->nscbtable = xmalloc(sizeof(AC_CALLBACK)*(uint)NS_NOTIFY_MAX);
+	ac->sbcbtable = xmalloc(sizeof(AC_CALLBACK)*(uint)SB_NOTIFY_MAX);
 	ac->notifications = ac->ns->notifications;
-	memset(ac->nscbtable, 0, sizeof(AC_CALLBACK)*(uint)NOTIFY_MAX);
-	memset(ac->sbcbtable, 0, sizeof(AC_CALLBACK)*(uint)NOTIFY_MAX);
+	memset(ac->nscbtable, 0, sizeof(AC_CALLBACK)*(uint)NS_NOTIFY_MAX);
+	memset(ac->sbcbtable, 0, sizeof(AC_CALLBACK)*(uint)SB_NOTIFY_MAX);
 #ifdef DEBUG
 	account_addcallback(ac->nscbtable, NS_NOTIFY_SHUTDOWN, account_shutdown_cb, NULL, 0);
 	account_addcallback(ac->sbcbtable, SB_NOTIFY_MSG, account_sbmsg_cb, NULL, 0);
@@ -181,11 +181,11 @@ void * _account_loop(void *data)/*{{{*/
 	}
 	pthread_exit(NULL);
 }/*}}}*/
-void _account_destroy_cbtable(AccountCallbackTable table)/*{{{*/
+void _account_destroy_cbtable(AccountCallbackTable table, int size)/*{{{*/
 {
 	AC_CALLBACK_ELEM *elem, *tmp;
 	int i;
-	for(i=0;i<(uint)NOTIFY_MAX;i++)
+	for(i=0;i<size;i++)
 	{
 		elem = table[i].front;
 		while(elem)
@@ -202,8 +202,8 @@ void account_destroy(Account *ac)/*{{{*/
 	int i;
 	NS_destroy(ac->ns);
 	pthread_join(ac->thread, (void**)&i);
-	_account_destroy_cbtable(ac->nscbtable);
-	_account_destroy_cbtable(ac->sbcbtable);
+	_account_destroy_cbtable(ac->nscbtable, NS_NOTIFY_MAX);
+	_account_destroy_cbtable(ac->sbcbtable, SB_NOTIFY_MAX);
 	xfree(ac->username);
 	xfree(ac->pwd);
 	xfree(ac->nick);

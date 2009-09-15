@@ -185,7 +185,7 @@ void NS_destroy(NS *ns)/*{{{*/
 		ns->sblist = sb;
 	}
 	if(ns->cmdq) cmdqueue_destroy(ns->cmdq);
-	if(ns->notifications) cmdqueue_destroy(ns->notifications);
+	/* if(ns->notifications) cmdqueue_destroy(ns->notifications); */ //Account will free it
 	xfree(ns);
 	ERR_free_strings();
 }/*}}}*/

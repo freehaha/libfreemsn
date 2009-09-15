@@ -8,19 +8,85 @@
 #include <libxml/HTMLparser.h>
 #include <openssl/md5.h>
 
-const char *ms_soapreqheader = "POST /abservice/SharingService.asmx HTTP/1.1\r\n"
+const char ms_request_header[] = "POST /abservice/SharingService.asmx HTTP/1.1\r\n"/*{{{*/
 "SOAPAction: http://www.msn.com/webservices/AddressBook/FindMembership\r\n"
 "Content-Type: text/xml; charset=utf-8\r\n"
 "Host: contacts.msn.com\r\n"
-"Content-Length: ";
-
-const char *ab_soapreqheader = "POST /abservice/abservice.asmx HTTP/1.1\r\n"
+"Content-Length: %d\r\n\r\n";/*}}}*/
+const char ab_request_header[] = "POST /abservice/abservice.asmx HTTP/1.1\r\n"/*{{{*/
 "SOAPAction: http://www.msn.com/webservices/AddressBook/ABFindAll\r\n"
 "Content-Type: text/xml; charset=utf-8\r\n"
 "Host: contacts.msn.com\r\n"
-"Content-Length: ";
+"Content-Length: %d\r\n\r\n";/*}}}*/
+const char ms_request[] = /*{{{*/
+"<?xml version=\"1.0\" encoding=\"utf-8\"?>"
+"<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\""
+"	xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\""
+"	xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\""
+"	xmlns:soapenc=\"http://schemas.xmlsoap.org/soap/encoding/\">"
+"	<soap:Header>"
+"		<ABApplicationHeader xmlns=\"http://www.msn.com/webservices/AddressBook\">"
+"			<ApplicationId>996CDE1E-AA53-4477-B943-2BE802EA6166</ApplicationId>"
+"			<IsMigration>false</IsMigration>"
+"			<PartnerScenario>Initial</PartnerScenario>"
+"		</ABApplicationHeader>"
+"		<ABAuthHeader xmlns=\"http://www.msn.com/webservices/AddressBook\">"
+"			<ManagedGroupRequest>false</ManagedGroupRequest>"
+"			<TicketToken>%s</TicketToken>"
+"		</ABAuthHeader>"
+"	</soap:Header>"
+"	<soap:Body>"
+"		<FindMembership xmlns=\"http://www.msn.com/webservices/AddressBook\">"
+"			<serviceFilter>"
+"				<Types>"
+"					<ServiceType>Messenger</ServiceType>"
+"					<ServiceType>Invitation</ServiceType>"
+"					<ServiceType>SocialNetwork</ServiceType>"
+"					<ServiceType>Space</ServiceType>"
+"					<ServiceType>Profile</ServiceType>"
+"				</Types>"
+"			</serviceFilter>"
+"			<View xmlns=\"http://www.msn.com/webservices/AddressBook\">Full</View>"
+"			<deltasOnly xmlns=\"http://www.msn.com/webservices/AddressBook\">true</deltasOnly>"
+			"<lastChange xmlns=\"http://www.msn.com/webservices/AddressBook\">%s</lastChange>"
+"		</FindMembership>"
+"	</soap:Body>"
+"</soap:Envelope>";/*}}}*/
+const char ms_request_full[] = /*{{{*/
+"<?xml version=\"1.0\" encoding=\"utf-8\"?>"
+"<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\""
+"	xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\""
+"	xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\""
+"	xmlns:soapenc=\"http://schemas.xmlsoap.org/soap/encoding/\">"
+"	<soap:Header>"
+"		<ABApplicationHeader xmlns=\"http://www.msn.com/webservices/AddressBook\">"
+"			<ApplicationId>996CDE1E-AA53-4477-B943-2BE802EA6166</ApplicationId>"
+"			<IsMigration>false</IsMigration>"
+"			<PartnerScenario>Initial</PartnerScenario>"
+"		</ABApplicationHeader>"
+"		<ABAuthHeader xmlns=\"http://www.msn.com/webservices/AddressBook\">"
+"			<ManagedGroupRequest>false</ManagedGroupRequest>"
+"			<TicketToken>%s</TicketToken>"
+"		</ABAuthHeader>"
+"	</soap:Header>"
+"	<soap:Body>"
+"		<FindMembership xmlns=\"http://www.msn.com/webservices/AddressBook\">"
+"			<serviceFilter>"
+"				<Types>"
+"					<ServiceType>Messenger</ServiceType>"
+"					<ServiceType>Invitation</ServiceType>"
+"					<ServiceType>SocialNetwork</ServiceType>"
+"					<ServiceType>Space</ServiceType>"
+"					<ServiceType>Profile</ServiceType>"
+"				</Types>"
+"			</serviceFilter>"
+"		</FindMembership>"
+"	</soap:Body>"
+"</soap:Envelope>";/*}}}*/
 
-int _cl_load_soapreq_ms(CL *cl, const char *filename, const char *lastchange, char **req);
+
+int _cl_load_soapreq_ms(CL *cl, const char *lastchange, char **req, bool FullRequest);
+int _cl_load_soapreq_ab(CL *cl, const char *lastchange, char **req, bool FullRequest);
 int _cl_do_soapreq_ms(CL *cl);
 int _cl_do_soapreq_ab(CL *cl);
 int _cl_parse_contacts(CL *cl, xmlDocPtr doc);
@@ -289,13 +355,13 @@ int _cl_do_soapreq_ab(CL *cl)/*{{{*/
 	char *header;
 	char buf[512];
 	int ret, len;
-	ret = _cl_load_soapreq_ms(cl, ABXML, cl->ablastchange, &req);
+	ret = _cl_load_soapreq_ab(cl, cl->ablastchange, &req, TRUE);
 	if(ret)
 	{
 		tcpclient_connect(client);
-		header = xmalloc(strlen(ab_soapreqheader) + 32);
+		header = xmalloc(strlen(ab_request_header) + 32);
 		DMSG(stderr, "sending ab request\n");
-		len = sprintf(header, "%s%d\r\n\r\n", ab_soapreqheader, ret);
+		len = sprintf(header, "%s%d\r\n\r\n", ab_request_header, ret);
 		if(tcpclient_send(client, header, len) <= 0) goto cleanup;
 		if(tcpclient_send(client, req, ret) <= 0) goto cleanup;
 
@@ -446,7 +512,7 @@ int _cl_do_soapreq_ms(CL *cl)/*{{{*/
 	int count = 0;
 	char *req = NULL;
 	char *header;
-	header = xmalloc(strlen(ms_soapreqheader) + 32);
+	header = xmalloc(strlen(ms_request_header) + 32);
 
 	client = sslclient_new(DEFAULTSERVER, 443);
 	if(!sslclient_connect(client))
@@ -460,20 +526,20 @@ int _cl_do_soapreq_ms(CL *cl)/*{{{*/
 	{
 		DMSG(stderr, "loading cached contacts...\n");
 		if((count = cl_load_contacts(cl, contactfile)))
-			ret = _cl_load_soapreq_ms(cl, CONXML, cl->lastchange, &req);
+			ret = _cl_load_soapreq_ms(cl, cl->lastchange, &req, FALSE);
 		else
-			ret = _cl_load_soapreq_ms(cl, CONXML_FULL, cl->lastchange, &req);
+			ret = _cl_load_soapreq_ms(cl, cl->lastchange, &req, TRUE);
 		DMSG(stderr, "%d contacts loaded from cache...\n", count);
 
 		fclose(fp);
 	}
 	else
-		ret = _cl_load_soapreq_ms(cl, CONXML_FULL, cl->lastchange, &req);
+		ret = _cl_load_soapreq_ms(cl, cl->lastchange, &req, TRUE);
 	if(ret)
 	{
 		DMSG(stderr, "sending cl request\n");
 		/* send request */
-		len = sprintf(header, "%s%d\r\n\r\n", ms_soapreqheader, ret);
+		len = sprintf(header, ms_request_header, ret);
 		if(sslclient_send(client, header, len) <= 0) goto cleanup;
 		if(sslclient_send(client, req, ret) <= 0) goto cleanup;
 
@@ -537,31 +603,27 @@ cleanup:
 	xfree(header);
 	return count;
 }/*}}}*/
-int _cl_load_soapreq_ms(CL *cl, const char *filename, const char *lastchange, char **req)/*{{{*/
+int _cl_load_soapreq_ms(CL *cl, const char *lastchange, char **req, bool FullRequest)/*{{{*/
 {
-	FILE *fp;
-	char *buf;
-	char line[512];
 	int size;
-	int ret;
-	int len;
-	fp = fopen(filename, "r");
-	if(!fp)
-	{
-		fprintf(stderr, "error opening file %s\n", filename);
-	   	return 0;
-	}
 	xfree(*req);
-	size = 1024;
-	*req = xmalloc(size);
+	if(FullRequest)
+	{
+		size = sizeof(ms_request_full) + strlen(cl->ticket) * 2;
+		*req = xmalloc(size);
+	}
+	else
+	{
+		size = sizeof(ms_request) + strlen(cl->ticket) * 2;
+		*req = xmalloc(size);
+	}
 	if(*req == NULL)
 	{
 		fprintf(stderr, "load_soapreq: bad xmalloc\n");
-		fclose(fp);
 		return 0;
 	}
 	memset(*req, 0, size);
-	buf = *req;
+	int ret, len;
 	ret = 0;
 	len = strlen(cl->ticket);
 	ret = len*2;
@@ -569,52 +631,16 @@ int _cl_load_soapreq_ms(CL *cl, const char *filename, const char *lastchange, ch
 	memset(encticket, 0, ret);
 	htmlEncodeEntities((unsigned char*)encticket, &ret, (unsigned char*)cl->ticket, &len, 0);
 	ret = 0;
-	char flag = 0;
-	while(fgets(line, 512, fp))
-	{
-		if(!strncmp(line, "###TICKET", 9))
-		{
-			flag = 1;
-			len = strlen(encticket)+32;
-		}
-		else if(!strncmp(line, "###DATE", 7))
-		{
-			flag = 2;
-			len = strlen(cl->lastchange)+128;
-		}
-		else
-			len = strlen(line);
-
-		if(ret + len > size)
-		{
-			size *= 2;
-			*req = xrealloc(*req, size);
-			buf = *req + strlen(*req);
-		}
-
-		if(flag == 1)
-		{
-			buf += (len = sprintf(buf,"<TicketToken>%s</TicketToken>\r\n", encticket));
-			xfree(encticket);
-			flag = 0;
-		}
-		else if (flag == 2)
-		{
-
-			buf += (len = sprintf(buf,"<lastChange xmlns=\"http://www.msn.com/webservices/AddressBook\">"
-						"%s</lastChange>", cl->lastchange));
-			xfree(encticket);
-			flag = 0;
-		}
-		else
-		{
-			buf +=  sprintf(buf, "%s", line);
-		}
-		ret += len;
-	}
+	if(FullRequest)
+		ret = sprintf(*req, ms_request_full, encticket);
+	else
+		ret = sprintf(*req, ms_request, encticket, cl->lastchange);
 	
-	fclose(fp);
 	return ret;
+}/*}}}*/
+int _cl_load_soapreq_ab(CL *cl, const char *lastchange, char **req, bool FullRequest)/*{{{*/
+{
+	return 0;
 }/*}}}*/
 /* _cl_contact_sorter: re-construct the contact list in domain order {{{*/
 void _cl_contact_sorter(void *payload, void *data, xmlChar *domain)

@@ -8,6 +8,17 @@
 #include <libxml/HTMLparser.h>
 #include <openssl/md5.h>
 
+/* local functions {{{ */
+int _cl_load_soapreq_ms(CL *cl, const char *lastchange, char **req, bool FullRequest);
+int _cl_load_soapreq_ab(CL *cl, const char *lastchange, char **req, bool FullRequest);
+int _cl_do_soapreq_ms(CL *cl);
+int _cl_do_soapreq_ab(CL *cl);
+int _cl_parse_contacts(CL *cl, xmlDocPtr doc);
+void _cl_contact_hashdumper(void *payload, void *data, xmlChar *domain);
+void _cl_free_table(void *payload, xmlChar *name);
+void _cl_sort_contacts(CL *cl);
+void cl_save(CL *cl, const char *filename);
+/* requests */
 const char ms_request_header[] = "POST /abservice/SharingService.asmx HTTP/1.1\r\n"/*{{{*/
 "SOAPAction: http://www.msn.com/webservices/AddressBook/FindMembership\r\n"
 "Content-Type: text/xml; charset=utf-8\r\n"
@@ -107,17 +118,7 @@ const char ab_request[] = /*{{{*/
 "</soap:Body>"
 "</soap:Envelope>";/*}}}*/
 
-
-int _cl_load_soapreq_ms(CL *cl, const char *lastchange, char **req, bool FullRequest);
-int _cl_load_soapreq_ab(CL *cl, const char *lastchange, char **req, bool FullRequest);
-int _cl_do_soapreq_ms(CL *cl);
-int _cl_do_soapreq_ab(CL *cl);
-int _cl_parse_contacts(CL *cl, xmlDocPtr doc);
-void _cl_contact_hashdumper(void *payload, void *data, xmlChar *domain);
-void _cl_free_table(void *payload, xmlChar *name);
-void _cl_sort_contacts(CL *cl);
-void cl_save(CL *cl, const char *filename);
-
+/* }}} */
 ContactList *cl_new(Account *ac, const char *ticket)/*{{{*/
 {
 	CL *cl;

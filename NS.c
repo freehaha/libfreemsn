@@ -1,4 +1,3 @@
-#define _GNU_SOURCE
 #include "NS.h"
 #include <libxml/parser.h>
 #include <libxml/tree.h>
@@ -16,9 +15,9 @@ int _NS_initial_ADL(NS *ns);
 void _NS_do_ssoreq(NS *ns, char *policy, char* nonce);
 int _NS_get_tickets(xmlDocPtr doc, char **ticket, char **secret, char **cticket, char **oticket);
 int _NS_compute_usrkey(MSGUSRKEY *key, char *challenge, char *secret);
-char *_NS_compute_hash(char *key, int klen, char *magic, char *result);
-int _NS_send_command(NS *ns, char *command, char *argument, bool appendID);
-int _NS_send_payload(NS *ns, char *command, char *argument, const char *payload, int len, bool appendID);
+char *_NS_compute_hash(char *key, int klen, const char *magic, char *result);
+int _NS_send_command(NS *ns, const char *command, const char *argument, bool appendID);
+int _NS_send_payload(NS *ns, const char *command, const char *argument, const char *payload, int len, bool appendID);
 int _NS_add_payload(NS *ns, char *command, char *argument, char *payload, int len, bool appendID);
 int _NS_add_command(NS *ns, char *command, char *argument, bool appendID);
 int isBigEndian(void);
@@ -27,7 +26,6 @@ unsigned int swapInt(unsigned int dw);
 int _NS_push_command(NS *ns, Command *c);
 
 /* dispatches */
-struct nsdispatch _ns_dispatch_table[];
 int _NS_dispatch(NS *ns, char *);
 int _NS_disp_VER(NS *ns, char *command); /* version */
 int _NS_disp_CVR(NS *ns, char *command);
@@ -51,6 +49,31 @@ int _NS_disp_RNG(NS *ns, char* command); /* ringring */
 int _NS_disp_PRP(NS *ns, char* command); /* PRP */
 int _NS_disp_OUT(NS *ns, char* command); /* OUT */
 
+struct nsdispatch _ns_dispatch_table[] = /*{{{*/
+{
+	{"ILN", _NS_disp_ILN},
+	{"NLN", _NS_disp_NLN},
+	{"UBX", _NS_disp_UBX},
+	{"FLN", _NS_disp_FLN},
+	{"RNG", _NS_disp_RNG},
+	{"QNG", _NS_disp_QNG},
+	{"CHG", _NS_disp_CHG},
+	{"VER", _NS_disp_VER},
+	{"QRY", _NS_disp_QRY},
+	{"CVR", _NS_disp_CVR},
+	{"XFR", _NS_disp_XFR},
+	{"MSG", _NS_disp_MSG},
+	{"CHL", _NS_disp_CHL},
+	{"OUT", _NS_disp_OUT},
+	{"GCF", _NS_disp_GCF},
+	{"SBS", _NS_disp_SBS},
+	{"USR", _NS_disp_USR},
+	{"ADL", _NS_disp_ADL},
+	{"PRP", _NS_disp_PRP},
+	{"BLP", _NS_disp_BLP},
+	{"UUX", _NS_disp_UUX},
+	{NULL, NULL}
+};/*}}}*/
 /* requests */
 const char sso_request[] = /*{{{*/
 "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
@@ -155,7 +178,7 @@ const char sso_request_header[] = /*{{{*/
 
 NS *NS_new(Account *account)/*{{{*/
 {
-	NS *ns = xmalloc(sizeof(NS));
+	NS *ns = (NS*)xmalloc(sizeof(NS));
 	memset(ns, 0, sizeof(NS));
 	ns->account = account;
 	ns->cmdq = cmdqueue_new();
@@ -212,7 +235,7 @@ int NS_connect(NS *ns)/*{{{*/
 }/*}}}*/
 void *NS_loop(void *data)/*{{{*/
 {
-	NS *ns = data;
+	NS *ns = (NS*)data;
 	while(1)
 	{
 		if(NS_dispatch_nblocking(ns, 0, 500) < 0)
@@ -253,7 +276,7 @@ bool NS_dispatch_commands(NS *ns)/*{{{*/
 		{
 			case CMD_NS:/*{{{*/
 				{
-					NSMsgData *data = c->data;
+					NSMsgData *data = (NSMsgData*)c->data;
 					switch(data->type)
 					{
 						case MSG_MESSAGE:
@@ -271,7 +294,7 @@ bool NS_dispatch_commands(NS *ns)/*{{{*/
 				break;/*}}}*/
 			case CMD_NS_NOTIFY:/*{{{*/
 				{
-					NSNotifyData *data = c->data;
+					NSNotifyData *data = (NSNotifyData*)c->data;
 					switch(data->type)
 					{
 						case NS_NOTIFY_SHUTDOWN:
@@ -408,7 +431,7 @@ int _NS_dispatch(NS *ns, char *line)/*{{{*/
 }/*}}}*/
 void NS_msg_destroy(void *data)/*{{{*/
 {
-	NSMsgData *msg = data;
+	NSMsgData *msg = (NSMsgData*)data;
 	if(!data)
 	{
 		fprintf(stderr, "NULL data passed to _NS_msg_destroy\n");
@@ -428,7 +451,7 @@ int _NS_add_command(NS *ns, char *command, char *argument, bool appendID)/*{{{*/
 	}
 	Command *c;
 	DMSG(stderr, "add NS command: %s...\n", command);
-	NSMsgData *data = xmalloc(sizeof(NSMsgData));
+	NSMsgData *data = (NSMsgData*)xmalloc(sizeof(NSMsgData));
 	data->type = MSG_MESSAGE;
 	data->appendID = appendID;
 	data->cmd = strdup(command);
@@ -461,7 +484,7 @@ int _NS_add_payload(NS *ns, char *command, char *argument, char *payload, int le
 {
 	/* NOTE: payload WILL be freed after pop from the queue */
 	Command *c;
-	NSMsgData *data = xmalloc(sizeof(NSMsgData));
+	NSMsgData *data = (NSMsgData*)xmalloc(sizeof(NSMsgData));
 	data->type = MSG_PAYLOAD;
 	data->appendID = appendID;
 	data->cmd = strdup(command);
@@ -472,7 +495,7 @@ int _NS_add_payload(NS *ns, char *command, char *argument, char *payload, int le
 	c = command_new(CMD_NS, data, NS_msg_destroy);
 	return _NS_push_command(ns, c);
 }/*}}}*/
-int _NS_send_command(NS *ns, char *command, char *argument, bool appendID)/*{{{*/
+int _NS_send_command(NS *ns, const char *command, const char *argument, bool appendID)/*{{{*/
 {
 	int ret;
 	ret = _msn_send_command(ns->tclient, command, argument, appendID?ns->TrID:-1);
@@ -481,7 +504,7 @@ int _NS_send_command(NS *ns, char *command, char *argument, bool appendID)/*{{{*
 	if(ns->TrID > 128) ns->TrID = 0;
 	return ret;
 }/*}}}*/
-int _NS_send_payload(NS *ns, char *command, char *argument, const char *payload, int len, bool appendID)/*{{{*/
+int _NS_send_payload(NS *ns, const char *command, const char *argument, const char *payload, int len, bool appendID)/*{{{*/
 {
 	int ret;
 	ret = _msn_send_payload(ns->tclient, command, argument, payload, len, appendID?ns->TrID:-1);
@@ -519,14 +542,14 @@ int _NS_get_tickets(xmlDocPtr doc, char **ticket, char **secret, char **cticket,
 			{
 				DMSG(stderr, "found login ticket\n");
 				/* ticket */
-				*ticket = xmalloc(strlen((char*)ref->children->content));
+				*ticket = (char*)xmalloc(strlen((char*)ref->children->content));
 				strcpy(*ticket, (char*)ref->children->content);
 				/* binary secret */
 				ref = findNode(node->children, "BinarySecret", 3);
 				if(ref)
 				{
 					xmlChar *content = xmlNodeGetContent(ref);
-					*secret = xmalloc(strlen((char*)content)+1);
+					*secret = (char*)xmalloc(strlen((char*)content)+1);
 					strcpy(*secret, (char*)content);
 					xmlFree(content);
 				}
@@ -542,7 +565,7 @@ int _NS_get_tickets(xmlDocPtr doc, char **ticket, char **secret, char **cticket,
 			{
 				/* ticket */
 				DMSG(stderr, "found oim ticket\n");
-				*oticket = xmalloc(strlen((char*)ref->children->content));
+				*oticket = (char*)xmalloc(strlen((char*)ref->children->content));
 				strcpy(*oticket, (char*)ref->children->content);
 				found++;
 				continue;
@@ -551,7 +574,7 @@ int _NS_get_tickets(xmlDocPtr doc, char **ticket, char **secret, char **cticket,
 			{
 				/* ticket */
 				DMSG(stderr, "found contact ticket\n");
-				*cticket = xmalloc(strlen((char*)ref->children->content));
+				*cticket = (char*)xmalloc(strlen((char*)ref->children->content));
 				strcpy(*cticket, (char*)ref->children->content);
 				found++;
 				continue;
@@ -693,7 +716,7 @@ int _NS_compute_usrkey(MSGUSRKEY *key, char *challenge, char *secret)/*{{{*/
 	DES_set_key_unchecked(&dkey1, &sched1);		// set the key schedule
 	DES_set_key_unchecked(&dkey2, &sched2);		// set the key schedule
 	DES_set_key_unchecked(&dkey3, &sched3);		// set the key schedule
-	char *chg = xmalloc(strlen(challenge)+9);
+	char *chg = (char*)xmalloc(strlen(challenge)+9);
 	memcpy(chg, challenge, strlen(challenge));
 	memset(chg+strlen(challenge), 8, 8);
 	*(chg+strlen(challenge)+8) = 0;
@@ -703,7 +726,7 @@ int _NS_compute_usrkey(MSGUSRKEY *key, char *challenge, char *secret)/*{{{*/
 	xfree(key1);
 	return 0;
 }/*}}}*/
-char *_NS_compute_hash(char *key, int klen, char *magic, char *result)/*{{{*/
+char *_NS_compute_hash(char *key, int klen, const char *magic, char *result)/*{{{*/
 {
 	int mlen = strlen(magic);
 	static char ret[24];
@@ -727,31 +750,6 @@ char *_NS_compute_hash(char *key, int klen, char *magic, char *result)/*{{{*/
 	memcpy(result,ret, 24);
 	return ret;
 }/*}}}*/
-struct nsdispatch _ns_dispatch_table[] = /*{{{*/
-{
-	{"ILN", _NS_disp_ILN},
-	{"NLN", _NS_disp_NLN},
-	{"UBX", _NS_disp_UBX},
-	{"FLN", _NS_disp_FLN},
-	{"RNG", _NS_disp_RNG},
-	{"QNG", _NS_disp_QNG},
-	{"CHG", _NS_disp_CHG},
-	{"VER", _NS_disp_VER},
-	{"QRY", _NS_disp_QRY},
-	{"CVR", _NS_disp_CVR},
-	{"XFR", _NS_disp_XFR},
-	{"MSG", _NS_disp_MSG},
-	{"CHL", _NS_disp_CHL},
-	{"OUT", _NS_disp_OUT},
-	{"GCF", _NS_disp_GCF},
-	{"SBS", _NS_disp_SBS},
-	{"USR", _NS_disp_USR},
-	{"ADL", _NS_disp_ADL},
-	{"PRP", _NS_disp_PRP},
-	{"BLP", _NS_disp_BLP},
-	{"UUX", _NS_disp_UUX},
-	{NULL, NULL}
-};/*}}}*/
 int _NS_initial_ADL(NS *ns)/*{{{*/
 {
 	if(!ns->contacts)
@@ -1153,7 +1151,7 @@ void _NS_calculate_chl(char *input, char *output)/*{{{*/
 NSNotifyData *NS_notify_data_new(NSNotify notify)/*{{{*/
 {
 	NSNotifyData *data;
-	data = xmalloc(sizeof(*data));
+	data = (NSNotifyData*)xmalloc(sizeof(*data));
 	data->type = notify;
 	return data;
 }/*}}}*/

@@ -5,23 +5,6 @@
 #include "msnlib.h"
 
 /* enum, structs {{{*/
-enum _cmdtype_e
-{
-	CMD_NS, CMD_SB, CMD_NS_NOTIFY, CMD_SB_NOTIFY, CMD_MAX, _CMD_MAX=INT_MAX
-};
-
-enum _msgtype_e
-{
-	MSG_MESSAGE, MSG_PAYLOAD, MSG_MAX, _MSG_MAX=INT_MAX
-};
-enum _nsnotify_e
-{
-	NS_NOTIFY_SHUTDOWN, NS_NOTIFY_REQSB, NS_NOTIFY_NEWSB, NS_NOTIFY_MAX,  _NTY_MAX=INT_MAX
-};
-enum _sbnotify_e
-{
-	SB_NOTIFY_SHUTDOWN, SB_NOTIFY_MSG, SB_NOTIFY_REQSB, SB_NOTIFY_NEWSB, SB_NOTIFY_NAK, SB_NOTIFY_MAX, _SNTY_MAX=INT_MAX
-};
 struct _nsmsgdata_t
 {
 	MsgType type;
@@ -76,7 +59,7 @@ struct _cmdqueue_t
 typedef CmdQueue CQ;
 CQ cmdqueue_new();
 void cmdqueue_destroy(CQ q);
-inline bool cmdqueue_empty(CQ q);
+bool cmdqueue_empty(CQ q);
 void cmdqueue_push(CQ q, Command *cmd);
 Command *cmdqueue_pop(CQ q);
 Command *command_new(CmdType type, void *data, CmdDestroyFunc desfunc);

@@ -5,7 +5,7 @@
 #include <libxml/tree.h>
 #include <pthread.h>
 #include "xmalloc.h"
-xmlNodePtr findNode(xmlNodePtr start, char * name, int max_depth);
+xmlNodePtr findNode(xmlNodePtr start, const char * name, int max_depth);
 
 #ifdef DEBUG
 #define DMSG fprintf
@@ -19,6 +19,42 @@ xmlNodePtr findNode(xmlNodePtr start, char * name, int max_depth);
 #define FALSE 0
 #endif
 
+#ifndef INT_MAX
+#define INT_MAX ((uint)-1)
+#endif
+
+/* enums {{{ */
+
+enum _sbmsgtype
+{
+	SBMSG_CONTROL, SBMSG_TEXT, SBMSG_INVITE, SBMSG_P2P
+};
+enum _status
+{
+	NLN, BSY, BRB, AWY, IDL, PHN, LUN, HDN, NA
+};
+enum _cmdtype_e
+{
+	CMD_NS, CMD_SB, CMD_NS_NOTIFY, CMD_SB_NOTIFY, CMD_MAX, _CMD_MAX=INT_MAX
+};
+
+enum _msgtype_e
+{
+	MSG_MESSAGE, MSG_PAYLOAD, MSG_MAX, _MSG_MAX=INT_MAX
+};
+enum _nsnotify_e
+{
+	NS_NOTIFY_SHUTDOWN, NS_NOTIFY_REQSB, NS_NOTIFY_NEWSB, NS_NOTIFY_MAX,  _NTY_MAX=INT_MAX
+};
+enum _sbnotify_e
+{
+	SB_NOTIFY_SHUTDOWN, SB_NOTIFY_MSG, SB_NOTIFY_REQSB, SB_NOTIFY_NEWSB, SB_NOTIFY_NAK, SB_NOTIFY_MAX, _SNTY_MAX=INT_MAX
+};
+enum _sstate{
+	None, Read, Write, ReadWrite, Err
+};
+/* }}} */
+typedef enum _sstate SState;
 typedef struct _tcpclient TCPClient;
 typedef int (*TCPCallback)(TCPClient*, void *);
 typedef struct _httpheader HTTPHeader;

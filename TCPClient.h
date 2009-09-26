@@ -33,10 +33,6 @@ struct _httpheader {
 	int code;
 };
 
-typedef enum {
-	None, Read, Write, ReadWrite, Err
-} SState;
-
 TCPClient *tcpclient_new(const char *host, int port);
 void tcpclient_destroy(TCPClient *client);
 bool tcpclient_connect(TCPClient *client);

@@ -1,7 +1,7 @@
 #include "msnlib.h"
 #include <openssl/evp.h>
 
-xmlNodePtr findNode(xmlNodePtr start, char * name, int max_depth)/*{{{*/
+xmlNodePtr findNode(xmlNodePtr start, const char * name, int max_depth)/*{{{*/
 {
 	xmlNodePtr sibling;
 	if(max_depth <= 0) return NULL;
@@ -113,7 +113,7 @@ int _msn_read_payload(TCPClient *client, char **buf, int len)
 		return len;
 	}
 	/* TODO: setting timeout */
-	*buf = xmalloc(len+1);
+	*buf = (char*)xmalloc(len+1);
 	ptr = *buf;
 	while(len > 0)
 	{
@@ -148,14 +148,14 @@ char *get_one_arg(char *argument, char *buffer, int size)
 /* base64 conversions {{{ */
 char *unbase64(unsigned char *input, int length)
 {
-	char *buffer = xmalloc(length);
+	char *buffer = (char*)xmalloc(length);
 	memset(buffer, 0, length);
 	EVP_DecodeBlock((unsigned char*)buffer, input, length);
 	return buffer;
 }
 char *base64(const unsigned char *input, int length)
 {
-	char *buffer = xmalloc(length*2);
+	char *buffer = (char*)xmalloc(length*2);
 	memset(buffer, 0, length*2);
 	EVP_EncodeBlock((unsigned char*)buffer, input, length);
 	return buffer;

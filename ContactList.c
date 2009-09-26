@@ -122,10 +122,10 @@ const char ab_request[] = /*{{{*/
 ContactList *cl_new(Account *ac, const char *ticket)/*{{{*/
 {
 	CL *cl;
-	cl = xmalloc(sizeof(CL));
+	cl = (CL*)xmalloc(sizeof(CL));
 	memset(cl, 0, sizeof(CL));
 	cl->account = ac;
-	cl->ticket = xmalloc(strlen(ticket));
+	cl->ticket = (char*)xmalloc(strlen(ticket));
 	strcpy(cl->ticket, ticket);
 	cl->table = xmlHashCreate(30);
 	cl->emailtable = xmlHashCreate(250);
@@ -176,11 +176,11 @@ int cl_append_contact(CL *cl, Contact *c, const char *name, const char *domain)/
 	char email[64];
 	sprintf(email, "%s@%s", name, domain);
 
-	list = xmlHashLookup(cl->emailtable, (xmlChar*)email);
+	list = (Contact*)xmlHashLookup(cl->emailtable, (xmlChar*)email);
 	if(list) /* already exists */
 	{
 		/* delete from domain list */
-		list = xmlHashLookup(cl->table, (xmlChar*)domain);
+		list = (Contact*)xmlHashLookup(cl->table, (xmlChar*)domain);
 		if(!strcmp(list->name, name))
 		{
 			xmlHashUpdateEntry(cl->table, (xmlChar*)domain, list->d_next, NULL);
@@ -215,12 +215,12 @@ int cl_append_contact(CL *cl, Contact *c, const char *name, const char *domain)/
 				}
 			}
 		}
-		list = xmlHashLookup(cl->emailtable, (xmlChar*)email);
+		list = (Contact*)xmlHashLookup(cl->emailtable, (xmlChar*)email);
 		contact_destroy(list);
 	}
 	else
 	{
-		list = xmlHashLookup(cl->table, (xmlChar*)domain);
+		list = (Contact*)xmlHashLookup(cl->table, (xmlChar*)domain);
 		c->d_next = list;
 		xmlHashUpdateEntry(cl->table, (xmlChar*)domain, c, NULL);
 		c->g_next = cl->list;
@@ -233,7 +233,7 @@ int cl_append_contact(CL *cl, Contact *c, const char *name, const char *domain)/
 }/*}}}*/
 Contact *cl_get_contact_by_email(CL *cl, const char *email)/*{{{*/
 {
-	return xmlHashLookup(cl->emailtable, (xmlChar*)email);
+	return (Contact*)xmlHashLookup(cl->emailtable, (xmlChar*)email);
 }/*}}}*/
 int _cl_parse_contacts(CL *cl, xmlDocPtr doc)/*{{{*/
 {
@@ -383,7 +383,7 @@ int _cl_do_soapreq_ab(CL *cl)/*{{{*/
 	if(ret)
 	{
 		tcpclient_connect(client);
-		header = xmalloc(strlen(ab_request_header) + 32);
+		header = (char*)xmalloc(strlen(ab_request_header) + 32);
 		DMSG(stderr, "sending ab request\n");
 		len = sprintf(header, "%s%d\r\n\r\n", ab_request_header, ret);
 		if(tcpclient_send(client, header, len) <= 0) goto cleanup;
@@ -536,7 +536,7 @@ int _cl_do_soapreq_ms(CL *cl)/*{{{*/
 	int count = 0;
 	char *req = NULL;
 	char *header;
-	header = xmalloc(strlen(ms_request_header) + 32);
+	header = (char*)xmalloc(strlen(ms_request_header) + 32);
 
 	client = sslclient_new(DEFAULTSERVER, 443);
 	if(!sslclient_connect(client))
@@ -634,12 +634,12 @@ int _cl_load_soapreq_ms(CL *cl, const char *lastchange, char **req, bool FullReq
 	if(FullRequest)
 	{
 		size = sizeof(ms_request_full) + strlen(cl->ticket) * 2;
-		*req = xmalloc(size);
+		*req = (char*)xmalloc(size);
 	}
 	else
 	{
 		size = sizeof(ms_request) + strlen(cl->ticket) * 2;
-		*req = xmalloc(size);
+		*req = (char*)xmalloc(size);
 	}
 	if(*req == NULL)
 	{
@@ -651,7 +651,7 @@ int _cl_load_soapreq_ms(CL *cl, const char *lastchange, char **req, bool FullReq
 	ret = 0;
 	len = strlen(cl->ticket);
 	ret = len*2;
-	char *encticket = xmalloc(ret);
+	char *encticket = (char*)xmalloc(ret);
 	memset(encticket, 0, ret);
 	htmlEncodeEntities((unsigned char*)encticket, &ret, (unsigned char*)cl->ticket, &len, 0);
 	ret = 0;
@@ -669,11 +669,11 @@ int _cl_load_soapreq_ab(CL *cl, const char *lastchange, char **req, bool FullReq
 	int ret, len;
 	int size = sizeof(ab_request) + strlen(cl->ticket)*2;
 	xfree(*req);
-	*req = xmalloc(size);
+	*req = (char*)xmalloc(size);
 	ret = 0;
 	len = strlen(cl->ticket);
 	ret = len*2;
-	char *encticket = xmalloc(ret);
+	char *encticket = (char*)xmalloc(ret);
 	memset(encticket, 0, ret);
 	htmlEncodeEntities((unsigned char*)encticket, &ret, (unsigned char*)cl->ticket, &len, 0);
 	ret = sprintf(*req, ab_request, encticket);
@@ -684,7 +684,7 @@ int _cl_load_soapreq_ab(CL *cl, const char *lastchange, char **req, bool FullReq
 void _cl_contact_sorter(void *payload, void *data, xmlChar *domain)
 {
 	Contact *c;
-	CL *cl = data;
+	CL *cl = (CL*)data;
 	char *dn; 
 
 	/* if it is sorted before, that is, the domain is filled
@@ -707,7 +707,7 @@ void _cl_contact_sorter(void *payload, void *data, xmlChar *domain)
 	}
 	/* put them back to list, and fill the domain */
 	dn = strdup((char*)domain);
-	for(c=payload;c;c=c->d_next)
+	for(c=(Contact*)payload;c;c=c->d_next)
 	{
 		c->domain = dn;
 		c->g_next = cl->list;
@@ -741,7 +741,7 @@ char *cl_generate_ADL_list(CL *cl, int *count, int *sz)/*{{{*/
 
 	if(!leftoff) _cl_sort_contacts(cl);
 
-	list = xmalloc(size);
+	list = (char*)xmalloc(size);
 	list[0] = '\0';
 	plist = list;
 
@@ -761,7 +761,7 @@ char *cl_generate_ADL_list(CL *cl, int *count, int *sz)/*{{{*/
 		if(len + ret > size)
 		{
 			size += 512;
-			list = xrealloc(list, size);
+			list = (char*)xrealloc(list, size);
 			plist = list+len;
 		}
 		strcat(plist, buf);
@@ -776,7 +776,7 @@ char *cl_generate_ADL_list(CL *cl, int *count, int *sz)/*{{{*/
 			if(len + ret > size)
 			{
 				size += 512;
-				list = xrealloc(list, size);
+				list = (char*)xrealloc(list, size);
 				plist = list+len;
 			}
 			strcat(plist, buf);
@@ -792,7 +792,7 @@ char *cl_generate_ADL_list(CL *cl, int *count, int *sz)/*{{{*/
 		if(len + 5 > size)
 		{
 			size += 16;
-			list = xrealloc(list, size);
+			list = (char*)xrealloc(list, size);
 			plist = list+len;
 		}
 		len += sprintf(plist, "</d>");
@@ -801,7 +801,7 @@ char *cl_generate_ADL_list(CL *cl, int *count, int *sz)/*{{{*/
 	if(len + 5 > size)
 	{
 		size += 16;
-		list = xrealloc(list, size);
+		list = (char*)xrealloc(list, size);
 		plist = list+len;
 	}
 	ret = sprintf(buf, "</ml>");
@@ -815,7 +815,7 @@ char *cl_generate_ADL_list(CL *cl, int *count, int *sz)/*{{{*/
 Contact *contact_new(const char *nick)/*{{{*/
 {
 	Contact *c;
-	c = xmalloc(sizeof(Contact));
+	c = (Contact*)xmalloc(sizeof(Contact));
 	memset(c, 0, sizeof(Contact));
 	c->PSM = NULL;
 	c->type = 0;

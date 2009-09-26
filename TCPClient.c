@@ -3,7 +3,7 @@
 TCPClient *tcpclient_new(const char *host, int port)
 {
 	TCPClient *client;
-	client = xmalloc(sizeof(*client));
+	client = (TCPClient*)xmalloc(sizeof(*client));
 	if(!client)
 	{
 		perror("error creating new TCPClient");
@@ -33,7 +33,7 @@ bool tcpclient_connect(TCPClient *client)
 	if(!client->sin)
 	{
 		struct hostent *hp;
-		client->sin = xmalloc(sizeof(*client->sin));
+		client->sin = (struct sockaddr_in*)xmalloc(sizeof(*client->sin));
 		memset(client->sin, 0, sizeof(*client->sin));
 		if((hp=gethostbyname(client->hostname))==0)
 		{
@@ -75,7 +75,7 @@ int tcpclient_recv_header(TCPClient *client, char **buffer)
 	int ret;
 
 	xfree(*buffer);
-	*buffer = xmalloc(size);
+	*buffer = (char*)xmalloc(size);
 	buf = *buffer;
 	if(buf == NULL)
 	{
@@ -98,7 +98,7 @@ int tcpclient_recv_header(TCPClient *client, char **buffer)
 		if(ret + len > size)
 		{
 			size += 1024;
-			buf = xrealloc(*buffer, size);
+			buf = (char*)xrealloc(*buffer, size);
 			if(*buffer == buf)
 			{
 				fprintf(stderr, "failed to xrealloc !\n");
@@ -134,7 +134,7 @@ int tcpclient_getline(TCPClient *client, char **buffer, int maxsize)
 	char *buf;
 	sz = 128;
 	xfree(*buffer);
-	*buffer =  xmalloc(sz);
+	*buffer =  (char*)xmalloc(sz);
 	buf = *buffer;
 	if (maxsize == 0)
 		maxsize = 32768;
@@ -143,7 +143,7 @@ int tcpclient_getline(TCPClient *client, char **buffer, int maxsize)
 		if(count >= sz)
 		{
 			sz *= 2;
-			*buffer = xrealloc(*buffer, sz);
+			*buffer = (char*)xrealloc(*buffer, sz);
 			buf = *buffer;
 		}
 		ret = recv(TCP_FD(client), &c, 1, 0);
@@ -201,7 +201,7 @@ SState tcpclient_checkio(TCPClient *client, int sec, int usec)
 }
 HTTPHeader *http_parse_header(char *input)
 {
-	HTTPHeader *header = xmalloc(sizeof(HTTPHeader));
+	HTTPHeader *header = (HTTPHeader*)xmalloc(sizeof(HTTPHeader));
 	char line[512];
 	while(sscanf(input, "%[^\n]", line) == 1)
 	{

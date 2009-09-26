@@ -3,7 +3,7 @@
 CQ cmdqueue_new()
 {
 	CQ q;
-	q = xmalloc(sizeof(*q));
+	q = (CQ)xmalloc(sizeof(*q));
 	memset(q, 0, sizeof(*q));
 	pthread_mutex_init(&(q->lock), NULL);
 	return q;
@@ -59,7 +59,7 @@ Command *command_new(CmdType type, void *data, CmdDestroyFunc desfunc)
 		fprintf(stderr, "new Command data doesn't have destroy function\n");
 		return NULL;
 	}
-	Command *c = xmalloc(sizeof(Command));
+	Command *c = (Command*)xmalloc(sizeof(Command));
 	c->type = type;
 	c->data = data;
 	c->desfunc = desfunc;

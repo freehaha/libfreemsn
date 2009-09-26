@@ -97,7 +97,7 @@ OIMList *oimlist_getlist(const char* oticket)/*{{{*/
 	tok = strstr(oticket, "&p=");
 	int inlen = (tok-oticket-2);
 	int outlen = inlen * 2;
-	ol->t = xmalloc(outlen);
+	ol->t = (char*)xmalloc(outlen);
 	memset(ol->t, 0, outlen);
 	if(htmlEncodeEntities((xmlChar*)ol->t, &outlen, (xmlChar*)oticket+2, &inlen, 0))
 	{
@@ -109,7 +109,7 @@ OIMList *oimlist_getlist(const char* oticket)/*{{{*/
 	tok += 3;
 	inlen = strlen(tok);
 	outlen = inlen * 2;
-	ol->p = xmalloc(outlen);
+	ol->p = (char*)xmalloc(outlen);
 	memset(ol->p, 0, outlen);
 	if(htmlEncodeEntities((xmlChar*)ol->p, &outlen, (xmlChar*)tok, &inlen, 0))
 	{
@@ -131,8 +131,8 @@ OIMList *oimlist_getlist(const char* oticket)/*{{{*/
 	}
 	int rlen, hlen;
 	char buf[512];
-	char *hdr = xmalloc(sizeof(oim_getmd_req_header) + 20);
-	char *req = xmalloc(strlen(oticket) + sizeof(oim_getmd_req));
+	char *hdr = (char*)xmalloc(sizeof(oim_getmd_req_header) + 20);
+	char *req = (char*)xmalloc(strlen(oticket) + sizeof(oim_getmd_req));
 	DMSG(stderr, "sending OIM mail data request ..\n");
 	rlen = sprintf(req, oim_getmd_req, ol->t, ol->p);
 	hlen = sprintf(hdr, oim_getmd_req_header, rlen);
@@ -187,7 +187,7 @@ OIMList *oimlist_getlist(const char* oticket)/*{{{*/
 }/*}}}*/
 OIMList *oimlist_new()/*{{{*/
 {
-	OL *ol = xmalloc(sizeof(OL));
+	OL *ol = (OL*)xmalloc(sizeof(OL));
 	memset(ol, 0, sizeof(OL));
 	return ol;
 }/*}}}*/
@@ -240,8 +240,8 @@ char *oim_fetch(OL *ol, OIM *o)/*{{{*/
 	char buf[512];
 	xmlDocPtr doc;
 	xmlParserCtxtPtr ctxt;
-	hdr = xmalloc(sizeof(oim_getm_req_header)+32);
-	req = xmalloc(sizeof(oim_getm_req)+ strlen(ol->t) + strlen(ol->p) + strlen(o->id) + 64);
+	hdr = (char*)xmalloc(sizeof(oim_getm_req_header)+32);
+	req = (char*)xmalloc(sizeof(oim_getm_req)+ strlen(ol->t) + strlen(ol->p) + strlen(o->id) + 64);
 	rlen = sprintf(req, oim_getm_req, ol->t, ol->p, o->id);
 	hlen = sprintf(hdr, oim_getm_req_header, rlen);
 	DMSG(stderr, "sending oim fetching request...\n");
@@ -287,7 +287,7 @@ char *oim_fetch(OL *ol, OIM *o)/*{{{*/
 }/*}}}*/
 OIM *oim_new(const char *email, const char *nick, const char *id)/*{{{*/
 {
-	OIM *o = xmalloc(sizeof(*o));
+	OIM *o = (OIM*)xmalloc(sizeof(*o));
 	o->from = strdup(email);
 	o->nick = strdup(nick);
 	o->id = strdup(id);
@@ -319,7 +319,7 @@ int _oim_parse_maildata(OL *ol, xmlDocPtr doc)/*{{{*/
 		cEmail = xmlNodeGetContent(Email);
 		cId = xmlNodeGetContent(Id);
 		cNick = xmlNodeGetContent(Nick);
-		char *tmp = xmalloc(strlen((char*)cNick));
+		char *tmp = (char*)xmalloc(strlen((char*)cNick));
 		char *nick;
 		if(sscanf((char*)cNick, "=?%*[^?]?B?%[^? ]?=", tmp) == 1)
 		{
@@ -373,8 +373,8 @@ void oim_delete(OL *ol, OIM *o)/*{{{*/
 	int hlen, rlen;
 	char buf[512];
 	SSLClient *client;
-	hdr = xmalloc(sizeof(oim_delm_req_header) + 32);
-	req = xmalloc(sizeof(oim_delm_req)+strlen(ol->t)+strlen(ol->p)+strlen(o->id)+32);
+	hdr = (char*)xmalloc(sizeof(oim_delm_req_header) + 32);
+	req = (char*)xmalloc(sizeof(oim_delm_req)+strlen(ol->t)+strlen(ol->p)+strlen(o->id)+32);
 
 	rlen = sprintf(req, oim_delm_req, ol->t, ol->p, o->id);
 	hlen = sprintf(hdr, oim_delm_req_header, rlen);

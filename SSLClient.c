@@ -18,7 +18,7 @@ SSLClient * sslclient_new_from_TCPClient(TCPClient *tclient)
 		_SSL_INITED = TRUE;
 	}
 
-	client = xmalloc(sizeof(*client));
+	client = (SSLClient*)xmalloc(sizeof(*client));
 	memset(client, 0, sizeof(*client));
 	client->tclient = tclient;
 	client->ctx = SSL_CTX_new(TLSv1_client_method());
@@ -113,7 +113,7 @@ int sslclient_getline(SSLClient *client, char **buffer, int maxsize)/*{{{*/
 	char *buf;
 	sz = 128;
 	xfree(*buffer);
-	*buffer =  xmalloc(sz);
+	*buffer =  (char*)xmalloc(sz);
 	buf = *buffer;
 	if (maxsize == 0)
 		maxsize = 32768;
@@ -122,7 +122,7 @@ int sslclient_getline(SSLClient *client, char **buffer, int maxsize)/*{{{*/
 		if(count >= sz)
 		{
 			sz *= 2;
-			*buffer = xrealloc(*buffer, sz);
+			*buffer = (char*)xrealloc(*buffer, sz);
 			buf = *buffer;
 		}
 		ret = SSL_read(client->ssl, &c, 1);
@@ -154,7 +154,7 @@ int sslclient_recv_header(SSLClient *client, char **buffer)/*{{{*/
 	int ret;
 
 	xfree(*buffer);
-	*buffer = xmalloc(size);
+	*buffer = (char*)xmalloc(size);
 	buf = *buffer;
 	if(buf == NULL)
 	{
@@ -177,7 +177,7 @@ int sslclient_recv_header(SSLClient *client, char **buffer)/*{{{*/
 		if(ret + len > size)
 		{
 			size += 1024;
-			buf = xrealloc(*buffer, size);
+			buf = (char*)xrealloc(*buffer, size);
 			if(*buffer == buf)
 			{
 				fprintf(stderr, "failed to xrealloc !\n");

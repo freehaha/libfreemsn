@@ -14,8 +14,8 @@ int account_sbnak_cb(Account *ac, int type, void *vSB, void *data, void *init)
 }
 int account_sbmsg_cb(Account *ac, int type, void *vSB, void *data, void *init)
 {
-	SBNotifyData *note = data;
-	SBNotifyMsg *msg = note->data;
+	SBNotifyData *note = (SBNotifyData*)data;
+	SBNotifyMsg *msg = (SBNotifyMsg*)note->data;
 	if(msg->msgtype == SBMSG_TEXT)
 	{
 		if(!*msg->text)
@@ -27,15 +27,15 @@ int account_sbmsg_cb(Account *ac, int type, void *vSB, void *data, void *init)
 #endif
 Account *account_new(const char *nick, const char *name, const char *pwd)/*{{{*/
 {
-	Account *ac = xmalloc(sizeof(Account));
+	Account *ac = (Account*)xmalloc(sizeof(Account));
 	ac->username = strdup(name);
 	ac->pwd = strdup(pwd);
 	ac->nick = strdup(nick);
 	ac->next = NULL;
 	ac->notifications = cmdqueue_new();
 	ac->ns = NS_new(ac);
-	ac->nscbtable = xmalloc(sizeof(AC_CALLBACK)*(uint)NS_NOTIFY_MAX);
-	ac->sbcbtable = xmalloc(sizeof(AC_CALLBACK)*(uint)SB_NOTIFY_MAX);
+	ac->nscbtable = (AC_CALLBACK*)xmalloc(sizeof(AC_CALLBACK)*(uint)NS_NOTIFY_MAX);
+	ac->sbcbtable = (AC_CALLBACK*)xmalloc(sizeof(AC_CALLBACK)*(uint)SB_NOTIFY_MAX);
 	memset(ac->nscbtable, 0, sizeof(AC_CALLBACK)*(uint)NS_NOTIFY_MAX);
 	memset(ac->sbcbtable, 0, sizeof(AC_CALLBACK)*(uint)SB_NOTIFY_MAX);
 #ifdef DEBUG
@@ -47,7 +47,7 @@ Account *account_new(const char *nick, const char *name, const char *pwd)/*{{{*/
 }/*}}}*/
 int account_addcallback(AccountCallbackTable table, uint type, AC_CALLBACK_FUNC cb, void *initdata, uint flag)/*{{{*/
 {
-	AC_CALLBACK_ELEM *elem = xmalloc(sizeof(*elem));
+	AC_CALLBACK_ELEM *elem = (AC_CALLBACK_ELEM*)xmalloc(sizeof(*elem));
 	elem->cb = cb;
 	elem->id = cid++;
 	elem->flag = flag;
@@ -108,7 +108,7 @@ int _account_dispatch_notify(Account *ac, CmdType type, void *data)/*{{{*/
 	{
 		case CMD_NS_NOTIFY:
 			{
-				NSNotifyData *note = data;
+				NSNotifyData *note = (NSNotifyData*)data;
 				AC_CALLBACK_ELEM *elem, *elem_next;
 				for(elem=ac->nscbtable[(uint)note->type].front;elem;elem=elem_next)
 				{
@@ -127,7 +127,7 @@ int _account_dispatch_notify(Account *ac, CmdType type, void *data)/*{{{*/
 			break;
 		case CMD_SB_NOTIFY:
 			{
-				SBNotifyData *note = data;
+				SBNotifyData *note = (SBNotifyData*)data;
 				AC_CALLBACK_ELEM *elem, *elem_next;
 				for(elem=ac->sbcbtable[(uint)note->type].front;elem;elem=elem_next)
 				{
@@ -163,7 +163,7 @@ int _account_check_notify(Account *ac)/*{{{*/
 }/*}}}*/
 void * _account_loop(void *data)/*{{{*/
 {
-	Account *ac = data;
+	Account *ac = (Account*)data;
 	struct timeval tv;
 	int ret;
 	while(1)
@@ -225,7 +225,7 @@ bool account_connect(Account *account)/*{{{*/
 /* SB requesting functionalities */
 int account_reqsb_cb(Account *ac, int type, void *vSB, void *data, void *init)/*{{{*/
 {
-	*(SB**)init = vSB;
+	*(SB**)init = (SB*)vSB;
 	DMSG(stderr, "requested SB arrived.\n");
 	return 0;
 }/*}}}*/

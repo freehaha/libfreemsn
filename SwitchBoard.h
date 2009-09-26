@@ -25,11 +25,6 @@ struct _switchboard
 };
 #define SB_CONNECTED 1
 
-enum _sbmsgtype
-{
-	SBMSG_CONTROL, SBMSG_TEXT, SBMSG_INVITE, SBMSG_P2P
-};
-
 /* got message from SB */
 struct _sbmsgnotify
 {

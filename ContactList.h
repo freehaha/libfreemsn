@@ -11,10 +11,6 @@
 #define ABXML_FULL "abreq_full.xml"
 #define DEFAULTSERVER "contacts.msn.com"
 
-enum _status
-{
-	NLN, BSY, BRB, AWY, IDL, PHN, LUN, HDN, NA
-};
 struct _contact
 {
 	char *name;

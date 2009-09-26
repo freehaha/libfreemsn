@@ -16,7 +16,7 @@ const char textmessage_header[] = "MIME-Version: 1.0\r\n"/*{{{*/
 		"\r\n";/*}}}*/
 SBBuddy *sbbuddy_new(const char *nick, const char *email, int cid)/*{{{*/
 {
-	SBBuddy *bd = xmalloc(sizeof(SBBuddy));
+	SBBuddy *bd = (SBBuddy*)xmalloc(sizeof(SBBuddy));
 	memset(bd, 0, sizeof(*bd));
 	bd->nick = strdup(nick);
 	bd->email = strdup(email);
@@ -33,7 +33,7 @@ bool SB_dispatch_commands(SB *sb) /* {{{ */
 		{
 			case CMD_SB:
 				{
-					SBMsgData *data = c->data;
+					SBMsgData *data = (SBMsgData*)c->data;
 					switch(data->type)
 					{
 						case MSG_MESSAGE:
@@ -50,7 +50,7 @@ bool SB_dispatch_commands(SB *sb) /* {{{ */
 				}
 			case CMD_SB_NOTIFY:
 				{
-					SBNotifyData *data = c->data;
+					SBNotifyData *data = (SBNotifyData*)c->data;
 					switch(data->type)
 					{
 						case SB_NOTIFY_SHUTDOWN:
@@ -73,7 +73,7 @@ bool SB_dispatch_commands(SB *sb) /* {{{ */
 }/*}}}*/
 SB *SB_new(Account *account, const char *server, int port, const char *ticket, int sesid)/*{{{*/
 {
-	SB *sb = xmalloc(sizeof(SB));
+	SB *sb = (SB*)xmalloc(sizeof(SB));
 	memset(sb, 0, sizeof(SB));
 	sb->ticket = strdup(ticket);
 	sb->sesid = sesid;
@@ -115,7 +115,7 @@ int SB_sendmsg(SB *sb, const char *msg)/*{{{*/
 		fprintf(stderr, "nobody except you is connecting to the SB\n");
 		return TRUE;
 	}
-	char *msgbuf = xmalloc(strlen(msg)+sizeof(textmessage_header));
+	char *msgbuf = (char*)xmalloc(strlen(msg)+sizeof(textmessage_header));
 	int len;
 	len = sprintf(msgbuf, "%s%s", textmessage_header, msg);
 	len = _SB_send_payload(sb, "MSG", "N", msgbuf, len, TRUE);
@@ -255,8 +255,8 @@ SBNotifyMsg *_SB_make_notify_msg(SB *sb, const char *email, const char *nick, co
 		message = get_one_line(message, line, &ret);
 	}
 	size+=ret;
-	data = xmalloc(sizeof(*data));
-	msg = xmalloc(length-size+1);
+	data = (SBNotifyMsg*)xmalloc(sizeof(*data));
+	msg = (char*)xmalloc(length-size+1);
 	memcpy(msg, message, length-size);
 	msg[length-size] = '\0';
 	data->msgtype = msgtype;
@@ -268,8 +268,8 @@ SBNotifyMsg *_SB_make_notify_msg(SB *sb, const char *email, const char *nick, co
 }/*}}}*/
 void _SB_notify_msg_destroy(void *data)/*{{{*/
 {
-	SBNotifyData *notify = data;
-	SBNotifyMsg *msg = notify->data;
+	SBNotifyData *notify = (SBNotifyData*)data;
+	SBNotifyMsg *msg = (SBNotifyMsg*)notify->data;
 	xfree(msg->nick);
 	xfree(msg->email);
 	xfree(msg->text);
@@ -286,7 +286,7 @@ int _SB_disp_MSG(SB* sb, char * command) /* messenges *//*{{{*/
 	{
 		char *pl = NULL;
 		int ret = _SB_read_payload(sb, &pl, len);
-		SBNotifyData *data = xmalloc(sizeof(*data));
+		SBNotifyData *data = (SBNotifyData*)xmalloc(sizeof(*data));
 		data->type = SB_NOTIFY_MSG;
 		data->data = _SB_make_notify_msg(sb, email, nick, pl, len);
 		Command *c = command_new(CMD_SB_NOTIFY, data, _SB_notify_msg_destroy);
@@ -436,7 +436,7 @@ struct sbdispatch _sb_dispatch_table[] =/*{{{*/
 };/*}}}*/
 void SB_msg_destroy(void *data)/*{{{*/
 {
-	SBMsgData *msg = data;
+	SBMsgData *msg = (SBMsgData*)data;
 	if(!data)
 	{
 		fprintf(stderr, "NULL data passed to SB_msg_destroy\n");
@@ -449,7 +449,7 @@ void SB_msg_destroy(void *data)/*{{{*/
 }/*}}}*/
 SBMsgData *SB_msg_new(SB *sb, MsgType type, const char *cmd, const char* arg, const char *payload, int length, bool appendID)/*{{{*/
 {
-	SBMsgData *data = xmalloc(sizeof(*data));
+	SBMsgData *data = (SBMsgData*)xmalloc(sizeof(*data));
 	data->sb = sb;
 	data->type = type;
 	data->cmd = strdup(cmd);
@@ -461,7 +461,7 @@ SBMsgData *SB_msg_new(SB *sb, MsgType type, const char *cmd, const char* arg, co
 			fprintf(stderr, "NULL paload!\n");
 			return NULL;
 		}
-		data->payload = xmalloc(length);
+		data->payload = (char*)xmalloc(length);
 		memcpy(data->payload, payload, length);
 		data->length = length;
 	}
@@ -477,7 +477,7 @@ SBMsgData *SB_msg_new(SB *sb, MsgType type, const char *cmd, const char* arg, co
 SBNotifyData *SB_notify_data_new(SB *sb, SBNotify notify)/*{{{*/
 {
 	SBNotifyData *data;
-	data = xmalloc(sizeof(*data));
+	data = (SBNotifyData*)xmalloc(sizeof(*data));
 	data->sb = sb;
 	data->type = notify;
 	return data;

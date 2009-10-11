@@ -343,6 +343,10 @@ int _SB_disp_JOI(SB* sb, char * command) /* somebody joins *//*{{{*/
 		DMSG(stderr, "%s joins SB %lu\n", nick, sb->id);
 		SBBuddy *bd = sbbuddy_new(nick, email, cid);
 		_SB_add_buddy(sb, bd);
+		SBNotifyData *notify = SB_notify_data_new(sb, SB_NOTIFY_JOI);
+		notify->data = strdup(email);
+		Command *c = command_new(CMD_SB_NOTIFY, notify, SB_notify_data_destroy);
+		cmdqueue_push(sb->notifications, c);
 		return 1;
 	}
 	return 0;

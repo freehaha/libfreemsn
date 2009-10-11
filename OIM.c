@@ -320,11 +320,13 @@ int _oim_parse_maildata(OL *ol, xmlDocPtr doc)/*{{{*/
 		cId = xmlNodeGetContent(Id);
 		cNick = xmlNodeGetContent(Nick);
 		char *tmp = (char*)xmalloc(strlen((char*)cNick));
-		char *nick;
+		char *nick = NULL;
 		if(sscanf((char*)cNick, "=?%*[^?]?B?%[^? ]?=", tmp) == 1)
 		{
 			nick = (char*)unbase64((unsigned char*)tmp, strlen(tmp));
 		}
+		else
+			nick = strdup((char*)cNick);
 
 		oim = oim_new((char*)cEmail, (char*)nick, (char*)cId);
 		oimlist_append(ol, oim);

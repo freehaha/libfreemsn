@@ -24,6 +24,13 @@ int account_sbmsg_cb(Account *ac, int type, void *vSB, void *data, void *init)
 	}
 	return 1;
 }
+
+int account_sbjoi_cb(Account *ac, int type, void *vSB, void *data, void *init)
+{
+	SBNotifyData *note = (SBNotifyData*)data;
+	DMSG(stderr, "SB Joined: %s\n",(char*) note->data);
+	return 1;
+}
 #endif
 Account *account_new(const char *nick, const char *name, const char *pwd)/*{{{*/
 {
@@ -42,6 +49,7 @@ Account *account_new(const char *nick, const char *name, const char *pwd)/*{{{*/
 	account_addcallback(ac->nscbtable, NS_NOTIFY_SHUTDOWN, account_shutdown_cb, NULL, 0);
 	account_addcallback(ac->sbcbtable, SB_NOTIFY_MSG, account_sbmsg_cb, NULL, 0);
 	account_addcallback(ac->sbcbtable, SB_NOTIFY_NAK, account_sbnak_cb, NULL, 0);
+	account_addcallback(ac->sbcbtable, SB_NOTIFY_JOI, account_sbjoi_cb, NULL, 0);
 #endif
 	return ac;
 }/*}}}*/

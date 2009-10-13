@@ -18,6 +18,7 @@ struct _switchboard
 	char *ticket;
 	int sesid;
 	int flag;
+	int tid;
 	SB *next;
 	unsigned int count;
 	CmdQueue cmdq;
@@ -44,8 +45,8 @@ struct _sbbuddy {
 	SBBuddy *next;
 };
 
-SB *SB_new(Account *account, const char *server, int port, const char *ticket, int sesid);
-int SB_connect(SB *sb);
+SB *SB_new(Account *account, int tid, int sesid);
+int SB_connect(SB *sb, const char *server, int port, const char *ticket);
 void SB_destroy(SB *sb);
 SBBuddy *sbbuddy_new(const char *nick, const char *email, int cid);
 void sbbuddy_destroy(SBBuddy *bd);
@@ -56,6 +57,7 @@ int SB_buddy_count(SB*);
 void SB_notify_data_destroy(void *notifydata);
 void SB_msg_destroy(void *data);
 int SB_invite(SB *sb, const char *email);
+bool SB_is_connected(SB *sb);
 SBMsgData *SB_msg_new(SB *sb, MsgType type, const char *cmd, const char* arg, const char *payload, int length, bool appendID);
 
 int SB_dispatch_nblocking(SB *sb, int sec, int usec);

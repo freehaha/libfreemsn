@@ -8,11 +8,11 @@ int main(int argc, const char **argv)
 	Account *ac = account_new("NICK", "ID@hotmail.com", "PWD");
 	account_connect(ac);
 	SB *sb = NULL;
-	account_request_SB(ac, &sb);
+	sb = account_request_SB(ac, NULL, NULL);
 	while(1)
 	{
 		/* wait for sb */
-		if(!sb)
+		if(!SB_is_connected(sb))
 			sleep(1);
 		else
 		{

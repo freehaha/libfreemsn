@@ -53,6 +53,14 @@ Account *account_new(const char *nick, const char *name, const char *pwd)/*{{{*/
 #endif
 	return ac;
 }/*}}}*/
+int account_addSBCallback(Account *ac, uint type, AC_CALLBACK_FUNC cb, void *initdata, uint flag)/*{{{*/
+{
+	return account_addcallback(ac->sbcbtable, type, cb, initdata, flag);
+}/*}}}*/
+int account_addNSCallback(Account *ac, uint type, AC_CALLBACK_FUNC cb, void *initdata, uint flag)/*{{{*/
+{
+	return account_addcallback(ac->nscbtable, type, cb, initdata, flag);
+}/*}}}*/
 int account_addcallback(AccountCallbackTable table, uint type, AC_CALLBACK_FUNC cb, void *initdata, uint flag)/*{{{*/
 {
 	AC_CALLBACK_ELEM *elem = (AC_CALLBACK_ELEM*)xmalloc(sizeof(*elem));
@@ -146,6 +154,7 @@ int _account_dispatch_notify(Account *ac, CmdType type, void *data)/*{{{*/
 						account_rmcallback(ac->sbcbtable, note->type, elem->id);
 					}
 					if(res < 0) return res;
+					if(res == 0) break;
 					ret++;
 				}
 				return ret;
@@ -230,18 +239,31 @@ bool account_connect(Account *account)/*{{{*/
 	ret = account_fork(account);
 	return ret;
 }/*}}}*/
+bool account_is_connected(Account *ac)/*{{{*/
+{
+	return (ac->ns->flag & NS_CONNECTED);
+}/*}}}*/
 /* SB requesting functionalities */
 int account_reqsb_cb(Account *ac, int type, void *vSB, void *data, void *init)/*{{{*/
 {
-	*(SB**)init = (SB*)vSB;
+	struct _sbreq_t *sbrequest = (struct _sbreq_t*) init;
+	if(sbrequest->callback)
+		sbrequest->callback((SB*)vSB, sbrequest->init);
 	DMSG(stderr, "requested SB arrived.\n");
 	return 0;
 }/*}}}*/
-void account_request_SB(Account *ac, SB **sb)/*{{{*/
+SB * account_request_SB(Account *ac, SBREQ_CALLBACK_FUNC callback, void *init) /* {{{ */
 {
-	uint id = account_addcallback(ac->sbcbtable, SB_NOTIFY_REQSB, account_reqsb_cb, (void*)sb, ACCB_ONCE);
-	if(!NS_request_SB(ac->ns))
+	SB *sb;
+	struct _sbreq_t *sbrequest;
+
+	sbrequest = (struct _sbreq_t*)malloc(sizeof(struct _sbreq_t));
+	sbrequest->init = init;
+	sbrequest->callback = callback;
+	uint id = account_addcallback(ac->sbcbtable, SB_NOTIFY_REQSB, account_reqsb_cb, (void*)sbrequest, ACCB_ONCE);
+	if(!(sb=NS_request_SB(ac->ns)))
 	{
 		account_rmcallback(ac->sbcbtable, SB_NOTIFY_REQSB, id);
 	}
+	return sb;
 }/*}}}*/

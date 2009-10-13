@@ -10,7 +10,7 @@ xmlNodePtr findNode(xmlNodePtr start, const char * name, int max_depth);
 #ifdef DEBUG
 #define DMSG fprintf
 #else
-#define DMSG (void) 
+#define DMSG(...) if(0){fprintf(__VA_ARGS__);}
 #endif
 
 #define bool char

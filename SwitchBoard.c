@@ -71,18 +71,24 @@ bool SB_dispatch_commands(SB *sb) /* {{{ */
 	}
 	return TRUE;
 }/*}}}*/
-SB *SB_new(Account *account, const char *server, int port, const char *ticket, int sesid)/*{{{*/
+inline bool SB_is_connected(SB *sb)/*{{{*/
+{
+	if(!sb) return FALSE;
+	return (sb->flag&SB_CONNECTED);
+}/*}}}*/
+SB *SB_new(Account *account, int tid, int sesid)/*{{{*/
 {
 	SB *sb = (SB*)xmalloc(sizeof(SB));
 	memset(sb, 0, sizeof(SB));
-	sb->ticket = strdup(ticket);
+	sb->ticket = NULL;
 	sb->sesid = sesid;
 	sb->account = account;
 	sb->cmdq = cmdqueue_new();
 	sb->notifications = account->ns->notifications;
+	sb->tid = tid;
 	sb->id = _sbid;
 	_sbid++;
-	sb->client = tcpclient_new(server, port);
+	sb->client = NULL;
 	return sb;
 }/*}}}*/
 int SB_close(SB *sb)/*{{{*/
@@ -92,9 +98,11 @@ int SB_close(SB *sb)/*{{{*/
 	_SB_push_command(sb, c);
 	return 1;
 }/*}}}*/
-int SB_connect(SB *sb)/*{{{*/
+int SB_connect(SB *sb, const char *server, int port, const char *ticket)/*{{{*/
 {
 	char hello[128];
+	sb->client = tcpclient_new(server, port);
+	sb->ticket = strdup(ticket);
 	if(!tcpclient_connect(sb->client)) return 0;
 	DMSG(stderr, "SB connecting...\n");
 	if(sb->sesid)
@@ -147,6 +155,7 @@ int SB_dispatch_nblocking(SB *sb, int sec, int usec)/*{{{*/
 {
 	char *buf = NULL;
 	int ret;
+	if(!sb->client) return 0;
 	SState s = tcpclient_checkio(sb->client, sec, usec);
 	if(s == Read || s == ReadWrite)
 	{

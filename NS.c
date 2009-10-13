@@ -20,6 +20,7 @@ int _NS_send_command(NS *ns, const char *command, const char *argument, bool app
 int _NS_send_payload(NS *ns, const char *command, const char *argument, const char *payload, int len, bool appendID);
 int _NS_add_payload(NS *ns, char *command, char *argument, char *payload, int len, bool appendID);
 int _NS_add_command(NS *ns, char *command, char *argument, bool appendID);
+SB * _NS_get_SB_by_tid(NS *ns, int tid);
 int isBigEndian(void);
 void _NS_calculate_chl(char *input, char *output);
 unsigned int swapInt(unsigned int dw);
@@ -311,7 +312,10 @@ bool NS_dispatch_commands(NS *ns)/*{{{*/
 						case NS_NOTIFY_REQSB:
 							{
 								DMSG(stderr, "SB request from account ...\n");
+								int tid = ns->TrID;
+								ns->TrID = (int)data->data;
 								_NS_send_command(ns, "XFR", "SB", TRUE);
+								ns->TrID = tid;
 								break;
 							}
 						default:
@@ -472,12 +476,19 @@ int _NS_push_command(NS *ns, Command *c)/*{{{*/
 	cmdqueue_push(ns->cmdq, c);
 	return 1;
 }/*}}}*/
-int NS_request_SB(NS *ns)/*{{{*/
+SB* NS_request_SB(NS *ns)/*{{{*/
 {
 	Command *c;
+	int tid = ns->TrID;
+
 	NSNotifyData *data = NS_notify_data_new(NS_NOTIFY_REQSB);
+	data->data = (void*)tid;
 	c = command_new(CMD_NS_NOTIFY, data, NS_notify_data_destroy);
-	return _NS_push_command(ns, c);
+	_NS_push_command(ns, c);
+	SB *sb = SB_new(ns->account, tid, 0);
+	sb->next = ns->sblist;
+	ns->sblist = sb;
+	return sb;
 }/*}}}*/
 
 int _NS_add_payload(NS *ns, char *command, char *argument, char *payload, int len, bool appendID)/*{{{*/
@@ -679,7 +690,7 @@ void _NS_do_ssoreq(NS *ns, char *policy, char* nonce)/*{{{*/
 	fprintf(stderr, "send: '%s' %d", send, len);
 #endif/*}}}*/
 	len = tcpclient_send(ns->tclient, send, len);
-	fprintf(stderr, "\nlen: %d\n", len);
+	DMSG(stderr, "\nlen: %d\n", len);
 	xmlFreeDoc(doc);
 	xmlCleanupParser();
 	xfree(ticket);
@@ -749,6 +760,15 @@ char *_NS_compute_hash(char *key, int klen, const char *magic, char *result)/*{{
 	memcpy(ret+20, hash4, 4);
 	memcpy(result,ret, 24);
 	return ret;
+}/*}}}*/
+SB * _NS_get_SB_by_tid(NS *ns, int tid)/*{{{*/
+{
+	SB *sb = NULL;
+	for(sb=ns->sblist;sb;sb=sb->next)
+	{
+		if(sb->tid == tid) return sb;
+	}
+	return NULL;
 }/*}}}*/
 int _NS_initial_ADL(NS *ns)/*{{{*/
 {
@@ -889,6 +909,7 @@ int _NS_disp_XFR(NS * ns, char* command) /* transfer {{{*/
 	char server[64];
 	char host[32];
 	int port;
+	int tid;
 	char *tok;
 	char ticket[32];
 	if(!(ns->flag & NS_CONNECTED) && sscanf(command, "%*d NS %s 0", server) == 1)
@@ -904,15 +925,16 @@ int _NS_disp_XFR(NS * ns, char* command) /* transfer {{{*/
 		tcpclient_connect(ns->tclient);
 		tcpclient_send(ns->tclient, hello, sizeof(hello)-1);
 	}
-	else if(sscanf(command, "%*d SB %[^:]:%d CKI %s", server, &port, ticket)==3)
+	else if(sscanf(command, "%d SB %[^:]:%d CKI %s", &tid, server, &port, ticket)==4)
 	{
 		//XFR 15 SB 207.46.108.37:1863 CKI 17262740.1050826919.32308\r\n
-		SB *sb = SB_new(ns->account, server, port, ticket, 0);
-		if(sb && SB_connect(sb))
+		SB *sb = _NS_get_SB_by_tid(ns, tid);
+		if(!sb)
 		{
-			sb->next = ns->sblist;
-			ns->sblist = sb;
+			DMSG(stderr, "ERROR: no matching SB found\n");
+			return 0;
 		}
+		SB_connect(sb, server, port, ticket);
 		Command *c;
 		SBNotifyData *data = SB_notify_data_new(sb, SB_NOTIFY_REQSB);
 		c = command_new(CMD_SB_NOTIFY, data, SB_notify_data_destroy);
@@ -1000,7 +1022,7 @@ int _NS_disp_UBX(NS *ns, char *command) /* buddy status changes {{{*/
 }/*}}}*/
 int _NS_disp_PRP(NS *ns, char *command) /* PRP {{{*/
 {
-	fprintf(stderr, "PRP: %s\n",command);
+	DMSG(stderr, "PRP: %s\n",command);
 	return 1;
 }/*}}}*/
 int _NS_disp_QRY(NS *ns, char *command) /* confirm of challenge {{{*/
@@ -1042,12 +1064,10 @@ int _NS_disp_RNG(NS *ns, char* command) /* ringring {{{*/
 	char nick[256];
 	if(sscanf(command, "%d %[^:]:%d CKI %s %s %s", &sesid, server, &port, ticket, email, nick) == 6)
 	{
-		SB *sb = SB_new(ns->account, server, port, ticket, sesid);
-		if(sb && SB_connect(sb))
-		{
-			sb->next = ns->sblist;
-			ns->sblist = sb;
-		}
+		SB *sb = SB_new(ns->account, 0, sesid);
+		sb->next = ns->sblist;
+		ns->sblist = sb;
+		SB_connect(sb, server, port, ticket);
 		Command *c;
 		SBNotifyData *data = SB_notify_data_new(sb, SB_NOTIFY_NEWSB);
 		c = command_new(CMD_SB_NOTIFY, data, SB_notify_data_destroy);

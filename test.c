@@ -33,13 +33,12 @@ int main(int argc, const char **argv)
 			}
 			else if(!strcmp(buf, "2\n"))
 			{
-				sb = NULL;
-				account_request_SB(ac, &sb);
+				sb = account_request_SB(ac, NULL, NULL);
 			}
 			else if(buf[0] == '3')
 			{
 				char email[64];
-				if(sb && sscanf(buf, "3 %[^\n]", email) == 1)
+				if(SB_is_connected(sb) && sscanf(buf, "3 %[^\n]", email) == 1)
 				{
 					SB_invite(sb, email);
 					DMSG(stderr, "inviting %s\n", email);
@@ -47,7 +46,7 @@ int main(int argc, const char **argv)
 			}
 			else
 			{
-				if(sb)
+				if(SB_is_connected(sb))
 				{
 					SB_sendmsg(sb, buf);
 				}

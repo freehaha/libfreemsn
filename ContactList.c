@@ -245,7 +245,7 @@ int _cl_parse_contacts(CL *cl, xmlDocPtr doc)/*{{{*/
 	services = findNode(node, "Services", 5);
 	if(!services)
 	{
-		fprintf(stderr, "cannot find <Services>\n"); 
+		DMSG(stderr, "cannot find <Services>\n");
 		goto cleanup;
 	}
 	cl->flag |= CL_INITLIST;

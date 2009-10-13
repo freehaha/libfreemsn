@@ -63,6 +63,6 @@ bool NS_fork(NS *ns);
 NSNotifyData *NS_notify_data_new(NSNotify notify);
 void NS_notify_data_destroy(void *notifydata);
 void NS_msg_destroy(void *data);
-int NS_request_SB(NS *ns);
+SB* NS_request_SB(NS *ns);
 
 #endif /* end of include guard: NS_PSP9PJHU */

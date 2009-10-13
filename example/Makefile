@@ -1,15 +1,18 @@
 CC=gcc
-SRC=sendmsg.c
+SRC=sendmsg.c sendmsg_callback.c
 OBJ=$(SRC:.c=.o)
-PROGRAM=sendmsg
+PROGRAM=sendmsg sendmsg_callback
 CFLAGS=-I../ `pkg-config --cflags libxml-2.0 openssl` -g3
 LFLAGS=-L../ -Wl,--rpath=../
 LIBS=-lfreemsn `pkg-config --libs libxml-2.0 openssl`
 
 all: $(PROGRAM)
 
-$(PROGRAM): $(OBJ)
-	$(CC) -o $(PROGRAM) $(OBJ) $(CFLAGS) $(LFLAGS) $(LIBS)
+sendmsg: sendmsg.o
+	$(CC) -o sendmsg sendmsg.o $(CFLAGS) $(LFLAGS) $(LIBS)
+
+sendmsg_callback: sendmsg_callback.o
+	$(CC) -o sendmsg_callback sendmsg_callback.o $(CFLAGS) $(LFLAGS) $(LIBS)
 
 .SUFFIXES: .c .cpp
 

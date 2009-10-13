@@ -1,6 +1,7 @@
 #ifndef NS_PSP9PJHU
 #define NS_PSP9PJHU
 
+#include "Prerequisites.h"
 #include "TCPClient.h"
 #include "SSLClient.h"
 #include "Account.h"

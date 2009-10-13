@@ -73,6 +73,8 @@ int tcpclient_recv_header(TCPClient *client, char **buffer)
 	char *buf;
 	int size = 1024;
 	int ret;
+	int len = 0;
+	char *line = NULL;
 
 	xfree(*buffer);
 	*buffer = (char*)xmalloc(size);
@@ -84,8 +86,7 @@ int tcpclient_recv_header(TCPClient *client, char **buffer)
 	}
 	memset(buf, 0, size);
 	ret = 0;
-	int len = 0;
-	char *line = NULL;
+
 	while(1)
 	{
 		ret = tcpclient_getline(client, &line, 0);
@@ -170,17 +171,20 @@ int tcpclient_getline(TCPClient *client, char **buffer, int maxsize)
 }
 SState tcpclient_checkio(TCPClient *client, int sec, int usec)
 {
+	int ret;
+	fd_set wfds, rfds;
+	SState state;
 	struct timeval tv;
+
 	tv.tv_sec = sec;
 	tv.tv_usec = usec;
-	fd_set wfds, rfds;
+	
 	FD_ZERO(&wfds);
 	FD_ZERO(&rfds);
 	FD_SET(TCP_FD(client), &wfds);
 	FD_SET(TCP_FD(client), &rfds);
 	
-	int ret;
-	SState state = None;
+	state = None;
 	if((ret = select(TCP_FD(client)+1, &rfds, NULL, NULL, &tv)))
 	{
 		if(ret == -1) return Err;

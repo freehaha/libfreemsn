@@ -1,10 +1,11 @@
 #ifndef MSNLIB_NPEP82FY
 #define MSNLIB_NPEP82FY
 
+#include "Prerequisites.h"
 #include <libxml/parser.h>
 #include <libxml/tree.h>
-#include <pthread.h>
 #include "xmalloc.h"
+
 xmlNodePtr findNode(xmlNodePtr start, const char * name, int max_depth);
 
 #ifdef DEBUG

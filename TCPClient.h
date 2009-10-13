@@ -1,12 +1,8 @@
 #ifndef TCPCLIENT_GZX86FGO
 #define TCPCLIENT_GZX86FGO
 #include "msnlib.h"
-#include <sys/socket.h>
-#include <sys/select.h>
-#include <netinet/tcp.h>
-#include <netdb.h>
-#include <arpa/inet.h>
-#include <unistd.h>
+
+#include "Prerequisites.h"
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>

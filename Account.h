@@ -1,5 +1,7 @@
 #ifndef ACCOUNT_TPAWEVBG
 #define ACCOUNT_TPAWEVBG
+
+#include "Prerequisites.h"
 #include "msnlib.h"
 #include "NS.h"
 #include "CmdQueue.h"

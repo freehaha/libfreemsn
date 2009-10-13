@@ -1,7 +1,8 @@
 #ifndef MSGQUEUE_IY2NVXY0
 #define MSGQUEUE_IY2NVXY0
 
-#include "pthread.h"
+#include "Prerequisites.h"
+#include <pthread.h>
 #include "msnlib.h"
 
 /* enum, structs {{{*/

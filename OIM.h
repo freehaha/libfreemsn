@@ -5,6 +5,8 @@
 #include "SSLClient.h"
 #include "Account.h"
 
+typedef unsigned int uint;
+
 struct _OIMList_t
 {
 	uint count;

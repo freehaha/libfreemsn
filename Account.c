@@ -35,9 +35,9 @@ int account_sbjoi_cb(Account *ac, int type, void *vSB, void *data, void *init)
 Account *account_new(const char *nick, const char *name, const char *pwd)/*{{{*/
 {
 	Account *ac = (Account*)xmalloc(sizeof(Account));
-	ac->username = strdup(name);
-	ac->pwd = strdup(pwd);
-	ac->nick = strdup(nick);
+	ac->username = STRDUP(name);
+	ac->pwd = STRDUP(pwd);
+	ac->nick = STRDUP(nick);
 	ac->next = NULL;
 	ac->notifications = cmdqueue_new();
 	ac->ns = NS_new(ac);
@@ -168,9 +168,11 @@ int _account_dispatch_notify(Account *ac, CmdType type, void *data)/*{{{*/
 }/*}}}*/
 int _account_check_notify(Account *ac)/*{{{*/
 {
-	if(cmdqueue_empty(ac->notifications)) return 0;
+	Command *c;
 	int ret;
-	Command *c = cmdqueue_pop(ac->notifications);
+
+	if(cmdqueue_empty(ac->notifications)) return 0;
+	c = cmdqueue_pop(ac->notifications);
 	if(c->type == CMD_NS_NOTIFY || c->type == CMD_SB_NOTIFY)
 	{
 		ret = _account_dispatch_notify(ac, c->type, c->data);
@@ -255,12 +257,12 @@ int account_reqsb_cb(Account *ac, int type, void *vSB, void *data, void *init)/*
 SB * account_request_SB(Account *ac, SBREQ_CALLBACK_FUNC callback, void *init) /* {{{ */
 {
 	SB *sb;
+	uint id;
 	struct _sbreq_t *sbrequest;
-
 	sbrequest = (struct _sbreq_t*)malloc(sizeof(struct _sbreq_t));
 	sbrequest->init = init;
 	sbrequest->callback = callback;
-	uint id = account_addcallback(ac->sbcbtable, SB_NOTIFY_REQSB, account_reqsb_cb, (void*)sbrequest, ACCB_ONCE);
+	id = account_addcallback(ac->sbcbtable, SB_NOTIFY_REQSB, account_reqsb_cb, (void*)sbrequest, ACCB_ONCE);
 	if(!(sb=NS_request_SB(ac->ns)))
 	{
 		account_rmcallback(ac->sbcbtable, SB_NOTIFY_REQSB, id);

@@ -41,13 +41,14 @@ void sslclient_destroy(SSLClient *sslc, bool KeepConnection)
 /* connect the tcp connection and perform handshake */
 bool sslclient_connect(SSLClient *sslc)
 {
+	int ret;
 	if(!tcpclient_connect(sslc->tclient)) return FALSE;
 	if(SSL_set_fd(sslc->ssl, TCP_FD(sslc->tclient)) == 0)
 	{
 		fprintf(stderr, "error setting fd: %d\n", SSL_get_error(sslc->ssl, 0));
 		return FALSE;
 	}
-	int ret = SSL_connect(sslc->ssl);
+	ret = SSL_connect(sslc->ssl);
 	if(ret != 1)
 	{
 		fprintf(stderr, "\nhandshake error:");
@@ -83,16 +84,18 @@ SState sslclient_checkio(SSLClient *sslc, int sec, int usec)
 }
 int sslclient_send(SSLClient *sslc, const char *msg, int size)
 {
+	int ret;
 	if(size <= 0) return 0;
-	int ret = SSL_write(sslc->ssl, msg, size);
+	ret = SSL_write(sslc->ssl, msg, size);
 	if(ret > 0) return ret;
 	fprintf(stderr, "sslclient_send: %d\n", SSL_get_error(sslc->ssl, ret));
 	return ret;
 }
 int sslclient_recv(SSLClient *sslc, char *buf, int size)
 {
+	int ret;
 	if(size <= 0) return 0;
-	int ret = SSL_read(sslc->ssl, buf, size);
+	ret = SSL_read(sslc->ssl, buf, size);
 	if(ret > 0) return ret;
 	if(ret == 0)
 	{
@@ -152,6 +155,8 @@ int sslclient_recv_header(SSLClient *client, char **buffer)/*{{{*/
 	char *buf;
 	int size = 1024;
 	int ret;
+	int len = 0;
+	char *line = NULL;
 
 	xfree(*buffer);
 	*buffer = (char*)xmalloc(size);
@@ -163,8 +168,7 @@ int sslclient_recv_header(SSLClient *client, char **buffer)/*{{{*/
 	}
 	memset(buf, 0, size);
 	ret = 0;
-	int len = 0;
-	char *line = NULL;
+	
 	while(1)
 	{
 		ret = sslclient_getline(client, &line, 0);

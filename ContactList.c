@@ -125,7 +125,7 @@ ContactList *cl_new(Account *ac, const char *ticket)/*{{{*/
 	cl = (CL*)xmalloc(sizeof(CL));
 	memset(cl, 0, sizeof(CL));
 	cl->account = ac;
-	cl->ticket = (char*)xmalloc(strlen(ticket));
+	cl->ticket = (char*)xmalloc(strlen(ticket)+1);
 	strcpy(cl->ticket, ticket);
 	cl->table = xmlHashCreate(30);
 	cl->emailtable = xmlHashCreate(250);
@@ -141,13 +141,13 @@ void _cl_free_emailtable(void *payload, xmlChar *name)/*{{{*/
 void cl_destroy(CL *cl)/*{{{*/
 {
 	char filename[64];
+	Contact *tmp;
+	char *dn = NULL;
 	MD5((unsigned char*)cl->account->username, strlen(cl->account->username), (unsigned char*)filename);
 	sprintf(filename, "%x%x.xml", (unsigned char)filename[0], (unsigned char)filename[1]);
 	cl_save(cl, filename);
 	xmlHashFree(cl->table, _cl_free_table);
 	xmlHashFree(cl->emailtable, _cl_free_emailtable);
-	Contact *tmp;
-	char *dn = NULL;
 	while(cl->list)
 	{
 		if(cl->list->domain != dn)
@@ -238,10 +238,10 @@ Contact *cl_get_contact_by_email(CL *cl, const char *email)/*{{{*/
 int _cl_parse_contacts(CL *cl, xmlDocPtr doc)/*{{{*/
 {
 	xmlNodePtr node;
-	node = xmlDocGetRootElement(doc);
 	xmlNodePtr services;
 	xmlNodePtr service;
 	int count = 0;
+	node = xmlDocGetRootElement(doc);
 	services = findNode(node, "Services", 5);
 	if(!services)
 	{
@@ -251,6 +251,7 @@ int _cl_parse_contacts(CL *cl, xmlDocPtr doc)/*{{{*/
 	cl->flag |= CL_INITLIST;
 	for(service=services->children;service;service=service->next)/*{{{*/
 	{
+		xmlNodePtr type;
 		xmlNodePtr info = findNode(service->children, "Info",1);
 		if(!info)
 		{
@@ -259,7 +260,7 @@ int _cl_parse_contacts(CL *cl, xmlDocPtr doc)/*{{{*/
 			goto cleanup;
 		}
 
-		xmlNodePtr type = findNode(info->children, "Type", 3);
+		type = findNode(info->children, "Type", 3);
 		if(!type || !type->children)
 		{
 			fprintf(stderr, "NULL Type\n");
@@ -280,6 +281,7 @@ int _cl_parse_contacts(CL *cl, xmlDocPtr doc)/*{{{*/
 		xmlNodePtr type;
 		xmlNodePtr lastchange;
 		xmlChar *content;
+		int flag = 0;
 		lastchange = findNode(service->children, "LastChange", 1);
 		content = xmlNodeGetContent(lastchange);
 		cl->lastchange = strdup((char*)content);
@@ -292,6 +294,7 @@ int _cl_parse_contacts(CL *cl, xmlDocPtr doc)/*{{{*/
 		}
 		for(ms=memberships->children;ms;ms=ms->next)
 		{
+			int ctype = 1;
 			if(!ms->children) continue;
 			role = findNode(ms->children, "MemberRole", 1);
 			if(!role)
@@ -302,7 +305,6 @@ int _cl_parse_contacts(CL *cl, xmlDocPtr doc)/*{{{*/
 			}
 			members = findNode(role, "Members", 1);
 			if(!members) continue;
-			int flag = 0;
 
 			if(xmlStrEqual(role->children->content, (xmlChar*)"Allow"))
 				flag = 3;
@@ -311,9 +313,9 @@ int _cl_parse_contacts(CL *cl, xmlDocPtr doc)/*{{{*/
 			else
 				continue;
 
-			int ctype = 1;
 			for(member=members->children;member;member=member->next)
 			{
+				Contact *c;
 				type = findNode(member->children, "Type", 1);
 				content = xmlNodeGetContent(type);
 				if(!content)
@@ -321,7 +323,6 @@ int _cl_parse_contacts(CL *cl, xmlDocPtr doc)/*{{{*/
 					fprintf(stderr, "NULL Type\n");
 					continue;
 				}
-				Contact *c;
 				if(xmlStrEqual(content, (xmlChar*)"Passport"))
 				{
 					pname = findNode(member->children, "PassportName", 1);
@@ -374,11 +375,12 @@ cleanup:
 int _cl_do_soapreq_ab(CL *cl)/*{{{*/
 {
 	TCPClient *client;
-	client = tcpclient_new("contacts.msn.com", 80);
 	char *req = NULL;
 	char *header;
 	char buf[512];
 	int ret, len;
+	char *ptr = NULL;
+	client = tcpclient_new("contacts.msn.com", 80);
 	ret = _cl_load_soapreq_ab(cl, cl->ablastchange, &req, TRUE);
 	if(ret)
 	{
@@ -389,19 +391,21 @@ int _cl_do_soapreq_ab(CL *cl)/*{{{*/
 		if(tcpclient_send(client, header, len) <= 0) goto cleanup;
 		if(tcpclient_send(client, req, ret) <= 0) goto cleanup;
 
-		char *ptr = NULL;
 		len = tcpclient_recv_header(client, &ptr); /* header */
 		if(ptr)
 		{
+			HTTPHeader *header;
+			xmlDocPtr doc;
+			xmlParserCtxtPtr ctxt;
+			FILE *fp;
+
 			DMSG(stderr, "AB response header:\n%s", ptr);
-			HTTPHeader *header = http_parse_header(ptr);
+			header = http_parse_header(ptr);
 			len = header->content_length;
 			DMSG(stderr, "Length: %d\n", len);
 			http_header_destroy(header);
 			memset(buf, 0, sizeof(buf));
-			xmlDocPtr doc;
-			xmlParserCtxtPtr ctxt;
-			FILE *fp = fopen("addressbook.xml", "w");
+			fp = fopen("addressbook.xml", "w");
 			fprintf(fp, buf);
 			len -= (ret = tcpclient_recv(client, buf, sizeof(buf)-1));
 			ctxt = xmlCreatePushParserCtxt(NULL, NULL, buf, ret, "addressbook.xml");
@@ -449,6 +453,11 @@ int cl_load_contacts(CL *cl, const char* file)/*{{{*/
 {
 	int ret;
 	xmlDocPtr doc;
+	xmlNodePtr root;
+	xmlNodePtr contact;
+	xmlNodePtr node;
+	xmlChar *content;
+
 	doc = xmlReadFile(file, NULL, 0);
 	if (doc == NULL)
 	{
@@ -456,10 +465,6 @@ int cl_load_contacts(CL *cl, const char* file)/*{{{*/
 		return 0;
 	}
 	ret = 0;
-	xmlNodePtr root;
-	xmlNodePtr contact;
-	xmlNodePtr node;
-	xmlChar *content;
 	root = xmlDocGetRootElement(doc);
 	contact = findNode(root->children, "contact", 3);
 #define READSTR(dst,elem)  node = findNode(contact->children, elem, 1); \
@@ -473,9 +478,10 @@ int cl_load_contacts(CL *cl, const char* file)/*{{{*/
 		xmlFree(content)
 	for(;contact;contact=contact->next)
 	{
+		Contact *c;
 		node = findNode(contact->children, "nick", 1);
 		content = xmlNodeGetContent(node);
-		Contact *c = contact_new((char*)content);
+		c = contact_new((char*)content);
 		xmlFree(content);
 		READSTR(c->name, "name");
 		READSTR(c->PSM, "PSM");
@@ -502,12 +508,12 @@ int cl_load_contacts(CL *cl, const char* file)/*{{{*/
 }/*}}}*/
 void cl_save(CL *cl, const char *filename)/*{{{*/
 {
+	Contact *c;
 	FILE *fp = fopen(filename, "w");
 	if(!fp) return;
 	fprintf(fp, "<?xml version=\"1.0\" encoding=\"utf-8\"?>");
 	fprintf(fp, "<contactinfo>");
 	fprintf(fp, "<contacts>");
-	Contact *c;
 	for(c=cl->list;c;c=c->g_next)
 	{
 		fprintf(fp, "<contact>");
@@ -536,16 +542,18 @@ int _cl_do_soapreq_ms(CL *cl)/*{{{*/
 	int count = 0;
 	char *req = NULL;
 	char *header;
+	char contactfile[64];
+	FILE *fp;
+
 	header = (char*)xmalloc(strlen(ms_request_header) + 32);
 
 	client = sslclient_new(DEFAULTSERVER, 443);
 	if(!sslclient_connect(client))
 		return 0;
 	/* connected */
-	char contactfile[64];
+	
 	MD5((unsigned char*)cl->account->username, strlen(cl->account->username), (unsigned char*)contactfile);
 	sprintf(contactfile, "%x%x.xml", (unsigned char)contactfile[0], (unsigned char)contactfile[1]);
-	FILE *fp;
 	if((fp=fopen(contactfile, "r")))
 	{
 		DMSG(stderr, "loading cached contacts...\n");
@@ -561,6 +569,12 @@ int _cl_do_soapreq_ms(CL *cl)/*{{{*/
 		ret = _cl_load_soapreq_ms(cl, cl->lastchange, &req, TRUE);
 	if(ret)
 	{
+		char buf[512] = {0};
+		char *ptr = NULL;
+		xmlDocPtr doc;
+		xmlParserCtxtPtr ctxt;
+		FILE *fp;
+
 		DMSG(stderr, "sending cl request\n");
 		/* send request */
 		len = sprintf(header, ms_request_header, ret);
@@ -569,14 +583,13 @@ int _cl_do_soapreq_ms(CL *cl)/*{{{*/
 
 		DMSG(stderr, "getting cl response\n");
 		/* get response */
-		char buf[512] = {0};
-		char *ptr = NULL;
 		DMSG(stderr, "HEADER:\n");
 		len = sslclient_recv_header(client, &ptr); /* header */
 		if(ptr)
 		{
+			HTTPHeader *header;
 			DMSG(stderr, ptr);
-			HTTPHeader *header = http_parse_header(ptr);
+			header = http_parse_header(ptr);
 			len = header->content_length;
 			DMSG(stderr, "content length: %d\n", len);
 			http_header_destroy(header);
@@ -588,9 +601,8 @@ int _cl_do_soapreq_ms(CL *cl)/*{{{*/
 		}
 
 		memset(buf, 0, sizeof(buf));
-		xmlDocPtr doc;
-		xmlParserCtxtPtr ctxt;
-		FILE *fp = fopen("contacts.xml", "w");
+
+		fp = fopen("contacts.xml", "w");
 		len -= (ret = sslclient_recv(client, buf, sizeof(buf)-1));
 		ctxt = xmlCreatePushParserCtxt(NULL, NULL, buf, ret, "contacts.xml");
 		DMSG(stderr, "RESPONSE:\n");
@@ -630,6 +642,8 @@ cleanup:
 int _cl_load_soapreq_ms(CL *cl, const char *lastchange, char **req, bool FullRequest)/*{{{*/
 {
 	int size;
+	int ret, len;
+	char *encticket;
 	xfree(*req);
 	if(FullRequest)
 	{
@@ -647,11 +661,10 @@ int _cl_load_soapreq_ms(CL *cl, const char *lastchange, char **req, bool FullReq
 		return 0;
 	}
 	memset(*req, 0, size);
-	int ret, len;
 	ret = 0;
 	len = strlen(cl->ticket);
 	ret = len*2;
-	char *encticket = (char*)xmalloc(ret);
+	encticket = (char*)xmalloc(ret);
 	memset(encticket, 0, ret);
 	htmlEncodeEntities((unsigned char*)encticket, &ret, (unsigned char*)cl->ticket, &len, 0);
 	ret = 0;
@@ -667,13 +680,14 @@ int _cl_load_soapreq_ms(CL *cl, const char *lastchange, char **req, bool FullReq
 int _cl_load_soapreq_ab(CL *cl, const char *lastchange, char **req, bool FullRequest)/*{{{*/
 {
 	int ret, len;
+	char *encticket;
 	int size = sizeof(ab_request) + strlen(cl->ticket)*2;
 	xfree(*req);
 	*req = (char*)xmalloc(size);
 	ret = 0;
 	len = strlen(cl->ticket);
 	ret = len*2;
-	char *encticket = (char*)xmalloc(ret);
+	encticket = (char*)xmalloc(ret);
 	memset(encticket, 0, ret);
 	htmlEncodeEntities((unsigned char*)encticket, &ret, (unsigned char*)cl->ticket, &len, 0);
 	ret = sprintf(*req, ab_request, encticket);

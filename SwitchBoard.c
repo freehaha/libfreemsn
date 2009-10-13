@@ -25,8 +25,9 @@ SBBuddy *sbbuddy_new(const char *nick, const char *email, int cid)/*{{{*/
 }/*}}}*/
 bool SB_dispatch_commands(SB *sb) /* {{{ */
 {
+	Command *c;
 	if(cmdqueue_empty(sb->cmdq)) return TRUE;
-	Command *c = cmdqueue_pop(sb->cmdq);
+	c = cmdqueue_pop(sb->cmdq);
 	while(c)
 	{
 		switch(c->type)
@@ -71,7 +72,7 @@ bool SB_dispatch_commands(SB *sb) /* {{{ */
 	}
 	return TRUE;
 }/*}}}*/
-inline bool SB_is_connected(SB *sb)/*{{{*/
+INLINE bool SB_is_connected(SB *sb)/*{{{*/
 {
 	if(!sb) return FALSE;
 	return (sb->flag&SB_CONNECTED);
@@ -118,13 +119,15 @@ int SB_connect(SB *sb, const char *server, int port, const char *ticket)/*{{{*/
 }/*}}}*/
 int SB_sendmsg(SB *sb, const char *msg)/*{{{*/
 {
+	int len;
+	char *msgbuf;
+
 	if(SB_buddy_count(sb) <= 0)
 	{
 		fprintf(stderr, "nobody except you is connecting to the SB\n");
 		return TRUE;
 	}
-	char *msgbuf = (char*)xmalloc(strlen(msg)+sizeof(textmessage_header));
-	int len;
+	msgbuf = (char*)xmalloc(strlen(msg)+sizeof(textmessage_header));
 	len = sprintf(msgbuf, "%s%s", textmessage_header, msg);
 	len = _SB_send_payload(sb, "MSG", "N", msgbuf, len, TRUE);
 	xfree(msgbuf);
@@ -180,6 +183,7 @@ int _SB_dispatch(SB *ns, char *line)/*{{{*/
 	char cmd[8]; /* protocol says 4 is enough, but just in case .. */
 	SBDispatch *dp;
 	char *arg = line;
+	int error, trid;
 	line = get_one_arg(line, cmd, 8);
 	for(dp=_sb_dispatch_table;dp->cmd;dp++)
 	{
@@ -189,7 +193,6 @@ int _SB_dispatch(SB *ns, char *line)/*{{{*/
 			return (*dp->func)(ns, line);
 		}
 	}
-	int error, trid;
 	if(sscanf(line, "%d %d", &error, &trid) == 2)
 	{
 		fprintf(stderr, "error message: %d respose to %d\n", error, trid);
@@ -294,11 +297,12 @@ int _SB_disp_MSG(SB* sb, char * command) /* messenges *//*{{{*/
 	if(sscanf(command, "%s %s %d", email, nick, &len) == 3)
 	{
 		char *pl = NULL;
+		Command *c;
 		int ret = _SB_read_payload(sb, &pl, len);
 		SBNotifyData *data = (SBNotifyData*)xmalloc(sizeof(*data));
 		data->type = SB_NOTIFY_MSG;
 		data->data = _SB_make_notify_msg(sb, email, nick, pl, len);
-		Command *c = command_new(CMD_SB_NOTIFY, data, _SB_notify_msg_destroy);
+		c = command_new(CMD_SB_NOTIFY, data, _SB_notify_msg_destroy);
 		cmdqueue_push(sb->notifications, c);
 		xfree(pl);
 		return ret;
@@ -349,12 +353,15 @@ int _SB_disp_JOI(SB* sb, char * command) /* somebody joins *//*{{{*/
 	int cid;
 	if(sscanf(command, "%s %s %d", email, nick, &cid) == 3)
 	{
+		SBBuddy *bd;
+		Command *c;
+		SBNotifyData *notify;
 		DMSG(stderr, "%s joins SB %lu\n", nick, sb->id);
-		SBBuddy *bd = sbbuddy_new(nick, email, cid);
+		bd = sbbuddy_new(nick, email, cid);
 		_SB_add_buddy(sb, bd);
-		SBNotifyData *notify = SB_notify_data_new(sb, SB_NOTIFY_JOI);
-		notify->data = strdup(email);
-		Command *c = command_new(CMD_SB_NOTIFY, notify, SB_notify_data_destroy);
+		notify = SB_notify_data_new(sb, SB_NOTIFY_JOI);
+		notify->data = STRDUP(email);
+		c = command_new(CMD_SB_NOTIFY, notify, SB_notify_data_destroy);
 		cmdqueue_push(sb->notifications, c);
 		return 1;
 	}

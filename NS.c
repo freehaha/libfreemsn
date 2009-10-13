@@ -8,6 +8,7 @@
 #include <openssl/buffer.h>
 #include <openssl/des.h>
 #include <openssl/md5.h>
+#include <pthread.h>
 
 /* internal functions {{{*/
 int _NS_load_ssoreq(char *buffer, char *username, char *password, char *policy);
@@ -189,6 +190,7 @@ NS *NS_new(Account *account)/*{{{*/
 void NS_destroy(NS *ns)/*{{{*/
 {
 	int ret;
+	SB *sb;
 	if(ns->nsthread)
 	{
 		Command *c;
@@ -201,7 +203,7 @@ void NS_destroy(NS *ns)/*{{{*/
 	if(ns->tclient) tcpclient_destroy(ns->tclient);
 	if(ns->sclient) sslclient_destroy(ns->sclient, FALSE);
 	if(ns->contacts) cl_destroy(ns->contacts);
-	SB *sb;
+	
 	while(ns->sblist)
 	{
 		sb = ns->sblist->next;
@@ -241,18 +243,18 @@ void *NS_loop(void *data)/*{{{*/
 	{
 		if(NS_dispatch_nblocking(ns, 0, 500) < 0)
 		{
+			Command *c;
+			NSNotifyData *data;
 			fprintf(stderr, "end\n");
 			/* tell account we're down */
-			Command *c;
-			NSNotifyData *data = NS_notify_data_new(NS_NOTIFY_SHUTDOWN);
+			
+			data = NS_notify_data_new(NS_NOTIFY_SHUTDOWN);
 			c = command_new(CMD_NS_NOTIFY, data, NS_notify_data_destroy);
 			cmdqueue_push(ns->notifications, c);
-			ns->nsthread = 0;
 			pthread_exit(0);
 		}
 		if(!NS_dispatch_commands(ns))
 		{
-			ns->nsthread = 0;
 			pthread_exit(0);
 		}
 		if(ns->nextping > 0)
@@ -264,13 +266,15 @@ void *NS_loop(void *data)/*{{{*/
 			}
 		}
 	}
-	ns->nsthread = 0;
 	pthread_exit(0);
+	return 0;
 }/*}}}*/
 bool NS_dispatch_commands(NS *ns)/*{{{*/
 {
+	Command *c;
+	SB *sb = NULL;
 	if(! (ns->flag & NS_CONNECTED)) return TRUE;
-	Command *c = cmdqueue_pop(ns->cmdq);
+	c = cmdqueue_pop(ns->cmdq);
 	while(c)
 	{
 		switch(c->type)
@@ -334,7 +338,6 @@ bool NS_dispatch_commands(NS *ns)/*{{{*/
 		command_destroy(c);
 		c = cmdqueue_pop(ns->cmdq);
 	}
-	SB *sb = NULL;
 	for(sb=ns->sblist;sb;sb=sb->next)
 	{
 		SB_dispatch_commands(sb);
@@ -392,6 +395,8 @@ int NS_dispatch_nblocking(NS *ns, int sec, int usec)/*{{{*/
 	sb_prev = ns->sblist;
 	for(sb=ns->sblist;sb;sb=sb_next)
 	{
+		SBNotifyData *data;
+		Command *cmd;
 		sb_next = sb->next;
 		if(SB_dispatch_nblocking(sb, 0, 100) < 0)
 		{
@@ -404,8 +409,8 @@ int NS_dispatch_nblocking(NS *ns, int sec, int usec)/*{{{*/
 			{
 				sb_prev->next = sb->next;
 			}
-			SBNotifyData *data = SB_notify_data_new(sb, SB_NOTIFY_SHUTDOWN);
-			Command *cmd = command_new(CMD_SB_NOTIFY, data, SB_notify_data_destroy);
+			data = SB_notify_data_new(sb, SB_NOTIFY_SHUTDOWN);
+			cmd = command_new(CMD_SB_NOTIFY, data, SB_notify_data_destroy);
 			cmdqueue_push(ns->notifications, cmd);
 			SB_destroy(sb);
 			continue;
@@ -448,19 +453,21 @@ void NS_msg_destroy(void *data)/*{{{*/
 }/*}}}*/
 int _NS_add_command(NS *ns, char *command, char *argument, bool appendID)/*{{{*/
 {
+	Command *c;
+	NSMsgData *data;
+
 	if( !command || !*command)
 	{
 		fprintf(stderr, "_NS_add_command: adding NULL command !\n");
 		return 0;
 	}
-	Command *c;
 	DMSG(stderr, "add NS command: %s...\n", command);
-	NSMsgData *data = (NSMsgData*)xmalloc(sizeof(NSMsgData));
+	data = (NSMsgData*)xmalloc(sizeof(NSMsgData));
 	data->type = MSG_MESSAGE;
 	data->appendID = appendID;
-	data->cmd = strdup(command);
+	data->cmd = STRDUP(command);
 	if(argument)
-		data->argument = strdup(argument);
+		data->argument = STRDUP(argument);
 	else
 		data->argument = NULL;
 	data->payload = NULL;
@@ -480,16 +487,26 @@ SB* NS_request_SB(NS *ns)/*{{{*/
 {
 	Command *c;
 	int tid = ns->TrID;
-
+	SB *sb;
 	NSNotifyData *data = NS_notify_data_new(NS_NOTIFY_REQSB);
 	data->data = (void*)tid;
 	c = command_new(CMD_NS_NOTIFY, data, NS_notify_data_destroy);
 	_NS_push_command(ns, c);
-	SB *sb = SB_new(ns->account, tid, 0);
+	sb = SB_new(ns->account, tid, 0);
 	sb->next = ns->sblist;
 	ns->sblist = sb;
 	return sb;
 }/*}}}*/
+SB * _NS_get_SB_by_tid(NS *ns, int tid)/*{{{*/
+{
+	SB *sb = NULL;
+	for(sb=ns->sblist;sb;sb=sb->next)
+	{
+		if(sb->tid == tid) return sb;
+	}
+	return NULL;
+}/*}}}*/
+
 
 int _NS_add_payload(NS *ns, char *command, char *argument, char *payload, int len, bool appendID)/*{{{*/
 {
@@ -498,8 +515,8 @@ int _NS_add_payload(NS *ns, char *command, char *argument, char *payload, int le
 	NSMsgData *data = (NSMsgData*)xmalloc(sizeof(NSMsgData));
 	data->type = MSG_PAYLOAD;
 	data->appendID = appendID;
-	data->cmd = strdup(command);
-	data->argument = strdup(argument);
+	data->cmd = STRDUP(command);
+	data->argument = STRDUP(argument);
 	data->payload = payload;
 	data->length = len;
 	data->time = time(NULL);
@@ -531,9 +548,11 @@ int _NS_read_payload(NS *ns, char **buf, int len)/*{{{*/
 int _NS_get_tickets(xmlDocPtr doc, char **ticket, char **secret, char **cticket, char **oticket)/*{{{*/
 {
 	xmlNodePtr node;
+	xmlNodePtr tokenCollection;
+	bool found = 0;
 
 	node = xmlDocGetRootElement(doc);
-	xmlNodePtr tokenCollection = findNode(node, "RequestSecurityTokenResponseCollection", 3);
+	tokenCollection = findNode(node, "RequestSecurityTokenResponseCollection", 3);
 	xfree(*secret);
 	xfree(*ticket);
 	xfree(*cticket);
@@ -543,7 +562,6 @@ int _NS_get_tickets(xmlDocPtr doc, char **ticket, char **secret, char **cticket,
 		fprintf(stderr, "cannot find token collection\n");
 		return FALSE;
 	}
-	bool found = 0;
 	for(node=tokenCollection->children;node;node=node->next)
 	{
 		xmlNodePtr ref = findNode(node->children, "BinarySecurityToken", 3);
@@ -553,7 +571,7 @@ int _NS_get_tickets(xmlDocPtr doc, char **ticket, char **secret, char **cticket,
 			{
 				DMSG(stderr, "found login ticket\n");
 				/* ticket */
-				*ticket = (char*)xmalloc(strlen((char*)ref->children->content));
+				*ticket = (char*)xmalloc(strlen((char*)ref->children->content)+1);
 				strcpy(*ticket, (char*)ref->children->content);
 				/* binary secret */
 				ref = findNode(node->children, "BinarySecret", 3);
@@ -576,7 +594,7 @@ int _NS_get_tickets(xmlDocPtr doc, char **ticket, char **secret, char **cticket,
 			{
 				/* ticket */
 				DMSG(stderr, "found oim ticket\n");
-				*oticket = (char*)xmalloc(strlen((char*)ref->children->content));
+				*oticket = (char*)xmalloc(strlen((char*)ref->children->content)+1);
 				strcpy(*oticket, (char*)ref->children->content);
 				found++;
 				continue;
@@ -585,7 +603,7 @@ int _NS_get_tickets(xmlDocPtr doc, char **ticket, char **secret, char **cticket,
 			{
 				/* ticket */
 				DMSG(stderr, "found contact ticket\n");
-				*cticket = (char*)xmalloc(strlen((char*)ref->children->content));
+				*cticket = (char*)xmalloc(strlen((char*)ref->children->content)+1);
 				strcpy(*cticket, (char*)ref->children->content);
 				found++;
 				continue;
@@ -613,6 +631,14 @@ void _NS_do_ssoreq(NS *ns, char *policy, char* nonce)/*{{{*/
 	char buf[sizeof(sso_request)+256] = {0};
 	char header[sizeof(sso_request_header)+32];
 	int len, hlen;
+	xmlDocPtr doc;
+	xmlParserCtxtPtr ctxt;
+	FILE *fp;
+	char *ticket = NULL, *secret = NULL, *cticket = NULL, *oticket = NULL;
+	MSGUSRKEY key;
+	char *p;
+	char send[2048];
+
 	ns->sclient = sslclient_new("login.live.com", 443);
 	if(!sslclient_connect(ns->sclient))
 	{
@@ -628,12 +654,10 @@ void _NS_do_ssoreq(NS *ns, char *policy, char* nonce)/*{{{*/
 	sslclient_recv(ns->sclient, buf, sizeof(buf)-1); /* header */
 	memset(buf, 0, sizeof(buf));
 	/* parse the resulting xml */
-	xmlDocPtr doc;
-	xmlParserCtxtPtr ctxt;
 	LIBXML_TEST_VERSION;
 	len = sslclient_recv(ns->sclient, buf, sizeof(buf)-1);
 	ctxt = xmlCreatePushParserCtxt(NULL, NULL, buf, len, "response.xml");
-	FILE *fp = fopen("response.xml", "w");
+	fp = fopen("response.xml", "w");
 	fprintf(fp, buf);
 	if(ctxt == NULL)
 	{
@@ -655,8 +679,6 @@ void _NS_do_ssoreq(NS *ns, char *policy, char* nonce)/*{{{*/
 	len = ctxt->wellFormed;
 	xmlFreeParserCtxt(ctxt);
 	DMSG(stderr, "xml parsing done: %s\n", len?"good":"malformed");
-	char *ticket = NULL, *secret = NULL, *cticket = NULL, *oticket = NULL;
-	MSGUSRKEY key;
 	if(!_NS_get_tickets(doc, &ticket, &secret, &cticket, &oticket))
 	{
 		fprintf(stderr, "error getting ticket & secret, restarting... \n");
@@ -679,8 +701,7 @@ void _NS_do_ssoreq(NS *ns, char *policy, char* nonce)/*{{{*/
 		ns->oticket = oticket;
 
 	_NS_compute_usrkey(&key, nonce, secret);
-	char *p = base64((unsigned char*)&key, sizeof(MSGUSRKEY));
-	char send[2048];
+	p = base64((unsigned char*)&key, sizeof(MSGUSRKEY));
 	len = sprintf(send, "USR 5 SSO S %s %s\r\n", ticket, p);
 	xfree(p);
 #if 0/*{{{*/
@@ -702,6 +723,12 @@ int _NS_compute_usrkey(MSGUSRKEY *key, char *challenge, char *secret)/*{{{*/
 	char *key1;
 	char key2[24];
 	char key3[24];
+	int klen = 0;
+	char *chg;
+	DES_cblock iv = {0,0,0,0,0,0,0,0};
+	DES_key_schedule sched1, sched2, sched3;
+	const_DES_cblock dkey1, dkey2, dkey3;
+
 	key->uStructHeaderSize = 28;
 	key->uCryptMode = 1;
 	key->uCipherType = 0x6603;
@@ -711,29 +738,25 @@ int _NS_compute_usrkey(MSGUSRKEY *key, char *challenge, char *secret)/*{{{*/
 	key->uCipherLen = 72;
 	memset(key->aIVBytes, 0, 8);
 
-	int klen = 0;
 	key1 = (char*)unbase64((unsigned char*)secret, strlen(secret));
 	klen = 24;
 	_NS_compute_hash(key1, klen, "WS-SecureConversationSESSION KEY HASH", key2);
 	_NS_compute_hash(key1, klen, "WS-SecureConversationSESSION KEY ENCRYPTION", key3);
 
 	HMAC(EVP_sha1(), (unsigned char*)key2, klen, (unsigned char*)challenge, strlen(challenge), key->aHashBytes, NULL);
-	DES_key_schedule sched1, sched2, sched3;
-	const_DES_cblock dkey1, dkey2, dkey3;
-	DES_cblock iv = {0,0,0,0,0,0,0,0};
+	
 	memcpy(dkey1, key3, 8);
 	memcpy(dkey2, key3+8, 8);
 	memcpy(dkey3, key3+16, 8);
 	DES_set_key_unchecked(&dkey1, &sched1);		// set the key schedule
 	DES_set_key_unchecked(&dkey2, &sched2);		// set the key schedule
 	DES_set_key_unchecked(&dkey3, &sched3);		// set the key schedule
-	char *chg = (char*)xmalloc(strlen(challenge)+9);
+	chg = (char*)xmalloc(strlen(challenge)+9);
 	memcpy(chg, challenge, strlen(challenge));
 	memset(chg+strlen(challenge), 8, 8);
 	*(chg+strlen(challenge)+8) = 0;
 	DES_ede3_cbc_encrypt((unsigned char*)chg, key->aCipherBytes, 72, &sched1, &sched2, &sched3, &iv, DES_ENCRYPT);
 	xfree(chg);
-
 	xfree(key1);
 	return 0;
 }/*}}}*/
@@ -761,25 +784,18 @@ char *_NS_compute_hash(char *key, int klen, const char *magic, char *result)/*{{
 	memcpy(result,ret, 24);
 	return ret;
 }/*}}}*/
-SB * _NS_get_SB_by_tid(NS *ns, int tid)/*{{{*/
-{
-	SB *sb = NULL;
-	for(sb=ns->sblist;sb;sb=sb->next)
-	{
-		if(sb->tid == tid) return sb;
-	}
-	return NULL;
-}/*}}}*/
 int _NS_initial_ADL(NS *ns)/*{{{*/
 {
+	char *adl;
+	int count = 0;
+	int len = 0;
+
 	if(!ns->contacts)
 	{
 		fprintf(stderr, "NS NULL contacts\n");
 		return 0;
 	}
-	char *adl;
-	int count = 0;
-	int len = 0;
+	
 	DMSG(stderr, "sending initial ADLs\n");
 	do
 	{
@@ -792,9 +808,10 @@ int _NS_initial_ADL(NS *ns)/*{{{*/
 }/*}}}*/
 int _NS_disp_GCF(NS *ns, char* command)/*{{{*/
 {
-	DMSG(stderr, "GCF: %s\n", command);
 	int size;
 	char *pl = NULL;
+
+	DMSG(stderr, "GCF: %s\n", command);
 	if(sscanf(command, "0 %d", &size) == 1)
 	{
 		_NS_read_payload(ns, &pl, size);
@@ -805,18 +822,19 @@ int _NS_disp_GCF(NS *ns, char* command)/*{{{*/
 int _NS_disp_NLN(NS *ns, char *command)/*{{{*/
 {
 	//NLN status email@addr.ess networkid nickname clientid dpobj
-	DMSG(stderr, "NLN: %s\n", command);
 	char status[4];
 	char email[64];
 	int nid;
 	char nick[512];
 	int clientid;
+
+	DMSG(stderr, "NLN: %s\n", command);
 	/* FIXME currently ignoring dpobj */
 	if(sscanf(command, "%s %s %d %s %d", status, email, &nid, nick, &clientid) == 5)
 	{
 		Contact *c = cl_get_contact_by_email(ns->contacts, email);
 		xfree(c->nick);
-		c->nick = strdup(nick);
+		c->nick = STRDUP(nick);
 		c->status = strtoStatus(status);
 	}
 
@@ -829,9 +847,10 @@ int _NS_disp_CHG(NS *ns, char *command) /* change state {{{*/
 }/*}}}*/
 int _NS_disp_CHL(NS *ns, char *command) /* challenge {{{*/
 {
-	DMSG(stderr, "CHL: %s\n", command);
 	char challenge[32] = {0};
 	char response[33];
+
+	DMSG(stderr, "CHL: %s\n", command);
 	sscanf(command, "0 %s", challenge);
 	_NS_calculate_chl(challenge, response);
 	DMSG(stderr, "challenge : %s\n", challenge);
@@ -854,6 +873,9 @@ int _NS_disp_MSG(NS *ns, char *command)/*{{{*/
 		xfree(pl);
 		if(!(ns->flag & NS_CONNECTED))
 		{
+			char buf[128];
+			char psm[] = "<Data><PSM>TESTING...</PSM><CurrentMedia></CurrentMedia></Data>";
+
 			if(ns->contacts)
 				length = cl_retrive(ns->contacts);
 			else
@@ -867,9 +889,8 @@ int _NS_disp_MSG(NS *ns, char *command)/*{{{*/
 			}
 
 			_NS_send_command(ns, "CHG", "HDN 0", TRUE);
-			char psm[] = "<Data><PSM>TESTING...</PSM><CurrentMedia></CurrentMedia></Data>";
 			_NS_send_payload(ns, "UUX", "", psm, strlen(psm), TRUE);
-			char buf[128];
+			
 			sprintf(buf, "MFN %s", ns->account->nick);
 			_NS_send_command(ns, "PRP", buf, TRUE);
 			ns->olist = oimlist_getlist(ns->oticket);
@@ -912,14 +933,16 @@ int _NS_disp_XFR(NS * ns, char* command) /* transfer {{{*/
 	int tid;
 	char *tok;
 	char ticket[32];
+
 	if(!(ns->flag & NS_CONNECTED) && sscanf(command, "%*d NS %s 0", server) == 1)
 	{
+		char hello[] = "VER 1 MSNP15 CVR0\r\n";
 		tok = strtok(server, ":");
 		strncpy(host, server, 32);
 		tok = strtok(NULL, ":");
 		port = atoi(tok);
 		DMSG(stderr, "XFR new server: %s:%d\n", host, port);
-		char hello[] = "VER 1 MSNP15 CVR0\r\n";
+		
 		tcpclient_destroy(ns->tclient);
 		ns->tclient = tcpclient_new(host, port);
 		tcpclient_connect(ns->tclient);
@@ -927,6 +950,8 @@ int _NS_disp_XFR(NS * ns, char* command) /* transfer {{{*/
 	}
 	else if(sscanf(command, "%d SB %[^:]:%d CKI %s", &tid, server, &port, ticket)==4)
 	{
+		Command *c;
+		SBNotifyData *data;
 		//XFR 15 SB 207.46.108.37:1863 CKI 17262740.1050826919.32308\r\n
 		SB *sb = _NS_get_SB_by_tid(ns, tid);
 		if(!sb)
@@ -934,9 +959,8 @@ int _NS_disp_XFR(NS * ns, char* command) /* transfer {{{*/
 			DMSG(stderr, "ERROR: no matching SB found\n");
 			return 0;
 		}
-		SB_connect(sb, server, port, ticket);
-		Command *c;
-		SBNotifyData *data = SB_notify_data_new(sb, SB_NOTIFY_REQSB);
+		
+		data = SB_notify_data_new(sb, SB_NOTIFY_REQSB);
 		c = command_new(CMD_SB_NOTIFY, data, SB_notify_data_destroy);
 		cmdqueue_push(ns->notifications, c);
 	}
@@ -994,24 +1018,27 @@ int _NS_disp_UBX(NS *ns, char *command) /* buddy status changes {{{*/
 	/* UBX source@mail.addr.ess networkid length */
 	if(sscanf(command, "%s %d %d", user, &nid, &length) == 3)
 	{
+		Contact *c;
+		xmlNodePtr node;
+		xmlDocPtr doc;
 		DMSG(stderr, "UBX: %s : %d\n", user, nid);
 		_NS_read_payload(ns, &pl, length);
 		/* <Data><PSM></PSM><CurrentMedia></CurrentMedia><MachineGuid>{F26D1F07-95E2-403C-BC18-D4BFED493428}</MachineGuid></Data> */
-		xmlDocPtr doc = xmlReadMemory(pl, length, "UBX.xml", NULL, 0);
+		doc = xmlReadMemory(pl, length, "UBX.xml", NULL, 0);
 		if(!doc)
 		{
 			fprintf(stderr, "bad UBX\n");
 			xfree(pl);
 			return 1;
 		}
-		Contact *c = cl_get_contact_by_email(ns->contacts, user);
-		xmlNodePtr node = findNode(doc->children, "PSM", 3);
+		c = cl_get_contact_by_email(ns->contacts, user);
+		node = findNode(doc->children, "PSM", 3);
 		if(node)
 		{
 			xmlChar *content = xmlNodeGetContent(node);
 			DMSG(stderr, "%s changed his PSM to %s\n", c->nick?c->nick:c->name, content);
 			xfree(c->PSM);
-			c->PSM = strdup((char*)content);
+			c->PSM = STRDUP((char*)content);
 			xmlFree(content);
 		}
 		xmlFreeDoc(doc);
@@ -1042,7 +1069,7 @@ int _NS_disp_ILN(NS *ns, char *command) /* initial contract {{{*/
 	{
 		Contact *c = cl_get_contact_by_email(ns->contacts, email);
 		xfree(c->nick);
-		c->nick = strdup(nick);
+		c->nick = STRDUP(nick);
 		c->status = strtoStatus(status);
 		DMSG(stderr, "ILN: %s: %s is now Online\n", c->nick, email);
 		DMSG(stderr, "%s\n", command);
@@ -1064,12 +1091,13 @@ int _NS_disp_RNG(NS *ns, char* command) /* ringring {{{*/
 	char nick[256];
 	if(sscanf(command, "%d %[^:]:%d CKI %s %s %s", &sesid, server, &port, ticket, email, nick) == 6)
 	{
+		Command *c;
+		SBNotifyData *data;
 		SB *sb = SB_new(ns->account, 0, sesid);
 		sb->next = ns->sblist;
 		ns->sblist = sb;
 		SB_connect(sb, server, port, ticket);
-		Command *c;
-		SBNotifyData *data = SB_notify_data_new(sb, SB_NOTIFY_NEWSB);
+		data = SB_notify_data_new(sb, SB_NOTIFY_NEWSB);
 		c = command_new(CMD_SB_NOTIFY, data, SB_notify_data_destroy);
 		cmdqueue_push(ns->notifications, c);
 	}
@@ -1091,7 +1119,7 @@ int _NS_disp_OUT(NS *ns, char *command) /* kicked {{{ */
 	return 1;
 }/* }}} */
 
-inline unsigned int endian_swap(unsigned int x)/*{{{*/
+INLINE unsigned int endian_swap(unsigned int x)/*{{{*/
 {
 	x = (x>>24) |
 		((x<<8) & 0x00FF0000) |
@@ -1112,6 +1140,9 @@ void _NS_calculate_chl(char *input, char *output)/*{{{*/
 	uint md5values[4];
 	int strValLen;
 	uint *pVal;
+	unsigned long long high, low;
+	typedef long long ll;
+
 	/* STEP 1: MD5 */
 	len = sprintf(buf, "%s%s", input, PKEY);
 	MD5((uch*)buf, len, md5hash);
@@ -1135,8 +1166,7 @@ void _NS_calculate_chl(char *input, char *output)/*{{{*/
 	}
 	pVal = (uint*)buf;
 #undef POS
-	unsigned long long high, low;
-	typedef long long ll;
+	
 	high = low = 0;
 	for(i=0;i<strValLen;i+=2)
 	{

@@ -93,10 +93,20 @@ OIMList *oimlist_getlist(const char* oticket)/*{{{*/
 {
 	OL *ol = oimlist_new();
 	char *tok;
+	int inlen, outlen;
+	SSLClient *client;	
+	int rlen, hlen;
+	char buf[512];
+	char *hdr;
+	char *req;
+	FILE *fp;
+	HTTPHeader *header;
+	xmlDocPtr doc;
+	xmlParserCtxtPtr ctxt;
 	/* get p and t {{{*/
-	tok = strstr(oticket, "&p=");
-	int inlen = (tok-oticket-2);
-	int outlen = inlen * 2;
+	tok = (char*)strstr(oticket, "&p=");
+	inlen = (tok-oticket-2);
+	outlen = inlen * 2;
 	ol->t = (char*)xmalloc(outlen);
 	memset(ol->t, 0, outlen);
 	if(htmlEncodeEntities((xmlChar*)ol->t, &outlen, (xmlChar*)oticket+2, &inlen, 0))
@@ -120,7 +130,6 @@ OIMList *oimlist_getlist(const char* oticket)/*{{{*/
 		return NULL;
 	}/*}}}*/
 	/* send soap request {{{*/
-	SSLClient *client;	
 	client = sslclient_new("rsi.hotmail.com", 443);
 	DMSG(stderr, "connecting to OIM server ...\n");
 	if(!sslclient_connect(client))
@@ -129,10 +138,9 @@ OIMList *oimlist_getlist(const char* oticket)/*{{{*/
 		oimlist_destroy(ol);
 		return NULL;
 	}
-	int rlen, hlen;
-	char buf[512];
-	char *hdr = (char*)xmalloc(sizeof(oim_getmd_req_header) + 20);
-	char *req = (char*)xmalloc(strlen(oticket) + sizeof(oim_getmd_req));
+
+	hdr = (char*)xmalloc(sizeof(oim_getmd_req_header) + 20);
+	req = (char*)xmalloc(strlen(oticket) + sizeof(oim_getmd_req));
 	DMSG(stderr, "sending OIM mail data request ..\n");
 	rlen = sprintf(req, oim_getmd_req, ol->t, ol->p);
 	hlen = sprintf(hdr, oim_getmd_req_header, rlen);
@@ -142,15 +150,12 @@ OIMList *oimlist_getlist(const char* oticket)/*{{{*/
 	xfree(req);
 	/* }}} */
 	/* response from server {{{ */
-	FILE *fp;
 	sslclient_recv_header(client, &hdr);
-	HTTPHeader *header = http_parse_header(hdr);
+	header = http_parse_header(hdr);
 	rlen = header->content_length;
 	http_header_destroy(header);
 	fp = fopen("oim.xml", "w");
 	memset(buf, 0, sizeof(buf));
-	xmlDocPtr doc;
-	xmlParserCtxtPtr ctxt;
 	rlen -= (hlen = sslclient_recv(client, buf, sizeof(buf)-1));
 	fprintf(fp, buf);
 	ctxt = xmlCreatePushParserCtxt(NULL, NULL, buf, hlen, "oim.xml");
@@ -214,13 +219,13 @@ void oimlist_append(OIMList *olist, OIM *oim)/*{{{*/
 void oimlist_save(OL *ol, const char *filename)/*{{{*/
 {
 	FILE *fp;
+	OIM *o;
 	fp = fopen(filename, "a");
 	if(!fp)
 	{
 		fprintf(stderr, "error opening file: %s\n", filename);
 		return;
 	}
-	OIM *o;
 	for(o=ol->list;o;o=o->next)
 	{
 		if(!o->text) continue;
@@ -230,16 +235,19 @@ void oimlist_save(OL *ol, const char *filename)/*{{{*/
 }/*}}}*/
 char *oim_fetch(OL *ol, OIM *o)/*{{{*/
 {
-	if(o->text) return o->text;
-	/* TODO: fetch oim */
 	SSLClient *client;
-	client = sslclient_new("rsi.hotmail.com", 443);
-	sslclient_connect(client);
 	char *hdr, *req;
 	int hlen, rlen;
 	char buf[512];
 	xmlDocPtr doc;
 	xmlParserCtxtPtr ctxt;
+	HTTPHeader *header;
+	/* TODO: fetch oim */
+	if(o->text) return o->text;
+
+	client = sslclient_new("rsi.hotmail.com", 443);
+	sslclient_connect(client);
+
 	hdr = (char*)xmalloc(sizeof(oim_getm_req_header)+32);
 	req = (char*)xmalloc(sizeof(oim_getm_req)+ strlen(ol->t) + strlen(ol->p) + strlen(o->id) + 64);
 	rlen = sprintf(req, oim_getm_req, ol->t, ol->p, o->id);
@@ -251,7 +259,7 @@ char *oim_fetch(OL *ol, OIM *o)/*{{{*/
 	xfree(req);
 	DMSG(stderr, "parsing response header... \n");
 	sslclient_recv_header(client, &hdr);
-	HTTPHeader *header = http_parse_header(hdr);
+	header = http_parse_header(hdr);
 	hlen = header->content_length;
 	http_header_destroy(header);
 	DMSG(stderr, "parsing response body ... \n");
@@ -305,13 +313,16 @@ void oim_destroy(OIM *oim)/*{{{*/
 int _oim_parse_maildata(OL *ol, xmlDocPtr doc)/*{{{*/
 {
 	xmlNodePtr node, md, m;
-	node = xmlDocGetRootElement(doc);
-	md = findNode(doc->children, "MD", 4); 
 	xmlNodePtr Email, Id, Nick;
 	xmlChar *cEmail, *cId, *cNick;
 	OIM *oim;
+	node = xmlDocGetRootElement(doc);
+	md = findNode(doc->children, "MD", 4);
 	for(m=md->children;m;m=m->next)
 	{
+		char *tmp;
+		char *nick;
+
 		if(!m->name || m->name[0] != 'M') break;
 		Email = findNode(m->children, "E", 2);
 		Id = findNode(m->children, "I", 2);
@@ -319,8 +330,8 @@ int _oim_parse_maildata(OL *ol, xmlDocPtr doc)/*{{{*/
 		cEmail = xmlNodeGetContent(Email);
 		cId = xmlNodeGetContent(Id);
 		cNick = xmlNodeGetContent(Nick);
-		char *tmp = (char*)xmalloc(strlen((char*)cNick));
-		char *nick = NULL;
+		tmp = (char*)xmalloc(strlen((char*)cNick));
+		nick = NULL;
 		if(sscanf((char*)cNick, "=?%*[^?]?B?%[^? ]?=", tmp) == 1)
 		{
 			nick = (char*)unbase64((unsigned char*)tmp, strlen(tmp));
@@ -341,14 +352,19 @@ int _oim_parse_maildata(OL *ol, xmlDocPtr doc)/*{{{*/
 }/*}}}*/
 int _oim_parse_message(OIM *o, xmlDocPtr doc)/*{{{*/
 {
-	xmlNodePtr node = xmlDocGetRootElement(doc);
-	node = findNode(node->children, "GetMessageResult", 3);
 	char line[256];
 	int size;
+	char *content;
+	const char *ptr;
+	int sid;
+
+	xmlNodePtr node = xmlDocGetRootElement(doc);
+	node = findNode(node->children, "GetMessageResult", 3);
+
 	if(!node) return 0;
-	char *content = (char*)xmlNodeGetContent(node);
-	const char *ptr = content;
-	int sid = 0;
+	content = (char*)xmlNodeGetContent(node);
+	ptr = content;
+	sid = 0;
 	while(ptr && *ptr)
 	{
 		size = 256;
@@ -375,6 +391,7 @@ void oim_delete(OL *ol, OIM *o)/*{{{*/
 	int hlen, rlen;
 	char buf[512];
 	SSLClient *client;
+	HTTPHeader *header;
 	hdr = (char*)xmalloc(sizeof(oim_delm_req_header) + 32);
 	req = (char*)xmalloc(sizeof(oim_delm_req)+strlen(ol->t)+strlen(ol->p)+strlen(o->id)+32);
 
@@ -390,7 +407,7 @@ void oim_delete(OL *ol, OIM *o)/*{{{*/
 	xfree(req);
 	DMSG(stderr, "parsing response header... \n");
 	sslclient_recv_header(client, &hdr);
-	HTTPHeader *header = http_parse_header(hdr);
+	header = http_parse_header(hdr);
 	hlen = header->content_length;
 	DMSG(stderr, "return code: %d\n", header->code);
 	if(header->code == 200) /* success */

@@ -13,9 +13,9 @@ xmlNodePtr findNode(xmlNodePtr start, const char * name, int max_depth)/*{{{*/
 			return sibling;
 		}
 	}
-	xmlNodePtr find;
 	for(sibling=start;sibling;sibling=sibling->next)
 	{
+		xmlNodePtr find;
 		find = findNode(sibling->children, name, max_depth-1);
 		if(find) return find;
 	}
@@ -24,13 +24,13 @@ xmlNodePtr findNode(xmlNodePtr start, const char * name, int max_depth)/*{{{*/
 
 const char *get_one_line(const char *argument, char *buffer, int *size)
 {
+	int sz = 0;
 	if(!argument || !*argument)
 	{
 		*buffer = '\0';
 		*size = 0;
 		return argument;
 	}
-	int sz = 0;
 	for(;*argument && sz<*size-1;argument++)
 	{
 		if(*argument == '\r')

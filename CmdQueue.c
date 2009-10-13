@@ -19,7 +19,7 @@ void cmdqueue_destroy(CQ q)
 	pthread_mutex_destroy(&(q->lock));
 	xfree(q);
 }
-inline bool cmdqueue_empty(CQ q)
+INLINE bool cmdqueue_empty(CQ q)
 {
 	return q->size == 0;
 }
@@ -40,13 +40,14 @@ void cmdqueue_push(CQ q, Command *cmd)
 }
 Command *cmdqueue_pop(CQ q)
 {
+	Command *c;
 	pthread_mutex_lock(&q->lock);
 	if(cmdqueue_empty(q))
 	{
 		pthread_mutex_unlock(&q->lock);
 		return NULL;
 	}
-	Command *c = q->front;
+	c = q->front;
 	q->front = c->next;
 	q->size--;
 	pthread_mutex_unlock(&q->lock);
@@ -54,12 +55,13 @@ Command *cmdqueue_pop(CQ q)
 }
 Command *command_new(CmdType type, void *data, CmdDestroyFunc desfunc)
 {
+	Command *c;
 	if(data && !desfunc)
 	{
 		fprintf(stderr, "new Command data doesn't have destroy function\n");
 		return NULL;
 	}
-	Command *c = (Command*)xmalloc(sizeof(Command));
+	c = (Command*)xmalloc(sizeof(Command));
 	c->type = type;
 	c->data = data;
 	c->desfunc = desfunc;

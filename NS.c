@@ -959,7 +959,7 @@ int _NS_disp_XFR(NS * ns, char* command) /* transfer {{{*/
 			DMSG(stderr, "ERROR: no matching SB found\n");
 			return 0;
 		}
-		
+		SB_connect(sb, server, port, ticket);
 		data = SB_notify_data_new(sb, SB_NOTIFY_REQSB);
 		c = command_new(CMD_SB_NOTIFY, data, SB_notify_data_destroy);
 		cmdqueue_push(ns->notifications, c);

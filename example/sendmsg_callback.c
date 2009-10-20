@@ -12,6 +12,7 @@ int cb_joined(Account *ac, int type, void *vSB, void *data, void *init)
 void sb_arrived_cb(SB* sb, void *init)
 {
 	printf("SB arrived, inviting %s...\n", (char*)init);
+	while(!SB_is_connected(sb));
 	SB_invite(sb, (char*)init);
 }
 
